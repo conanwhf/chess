@@ -11,3 +11,7 @@ android/app/src/main/assets/public/
 *.jks
 *.keystore
 .DS_Store
+public/engine/
+public/legal/dependencies.txt
+public/legal/GPL-3.0.txt
+*.tsbuildinfo
