@@ -17,3 +17,26 @@
 - 截图检查：1280×800 平板横屏、800×1280 平板竖屏、360×800 手机、1440×1000 桌面。棋盘、按钮和文字无横向溢出；真实引擎候选与箭头一致，切换聚焦不改变局面。
 - `npm audit`：0 个已知漏洞。测试工具由存在已知问题的旧版更新到 Vitest 5.1.1。
 - Android 调试 APK 已成功构建。模拟器与最终安装包验收将在下一阶段记录。
+
+## 0.3.0 最终验收 · 2026-11-20
+
+| 命令 / 检查 | 结果 |
+| --- | --- |
+| `npm test` | 53 / 53 通过 |
+| `npm run build` | TypeScript 与生产构建通过 |
+| `npm run test:e2e` | 14 / 14 通过，13.6 秒，沙盒外 Google Chrome |
+| `npm run test:e2e -- --grep 'guide\|responsive'` | 开源说明修改后 4 / 4 定向复验通过 |
+| Gradle `:app:assembleDebug` | 成功，JDK 21 / Gradle 8.14.3 / AGP 8.13.0 |
+| `apksigner verify --verbose` | APK 签名验证通过，v2 签名，调试密钥 |
+| `aapt dump permissions` | 无 INTERNET / 敏感权限，仅 AndroidX 本应用签名级接收器权限 |
+| APK 资产检查 | 本地 JS / WASM、12 枚棋子、依赖许可证、GPL、源码 ZIP、神经网络与构建说明 |
+| `ANDROID_SERIAL=emulator-5554 npm run test:android` | 7 组通过，含源码 ZIP 路径回归检查，实际 APK 而非浏览器网页 |
+| `npm audit` | 0 个已知漏洞 |
+
+模拟器：Android 13（API 33）ARM64、Pixel Tablet 配置、2560×1600 / 320 dpi，WebView 109.0.5414.123。实际执行：关闭 Wi-Fi 和移动数据后加载引擎并得到三个合法候选；提示不改变局面；电脑回复与悔棋；同机双人计时；Home 切后台暂停、前台恢复；系统返回键关闭帮助；旋转后没有横向溢出。保留原生截图与可重复执行的 `tests/android-smoke.mjs`。
+
+收尾发现并修复：AAPT 会解压 `.gz` 并改名，源码附件改为 ZIP；许可证 CRLF 规范为 LF，文字内容不变；开源构建说明改为应用内可读，不打开外部 localhost 页面。相关场景定向复验，不重复扩展无关功能。
+
+最终 APK 已复制为 `artifacts/little-chess-0.3.0-debug.apk`，约 7.9 MiB。用 `cmp` 对比 APK 内源码 ZIP 与仓库原件，内容一致；调试签名验证通过。Git diff 空白检查通过，Windows Wrapper 使用标准 CRLF 工作树 / LF 索引。
+
+未验证：实际小米 Pad 的触控与系统行为；Android 7–12 / 14 及更高版本真机；正式签名与应用商店发布；各档准确 Elo。最低系统版本只是构建设置，不应当作全部设备实测通过。

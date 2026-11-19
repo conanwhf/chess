@@ -11,7 +11,7 @@ There is no warranty. Full license: LICENSE / legal/GPL-3.0.txt.
 - License: GNU GPL version 3.
 - Unmodified npm stockfish@19.0.0: bin/stockfish-19-lite-single.js and .wasm.
 - Source release: https://github.com/nmrugg/stockfish.js/tree/v19.0.0
-- Corresponding source archive is bundled as legal/stockfish-19.0.0-source.tar.gz.
+- Corresponding source archive is bundled as legal/stockfish-19.0.0-source.zip, repackaged without source changes from the upstream release archive.
 - Lite neural network by Chris Bao (sscg13): nn-61e7af4bb97d.nnue.
 - Network source: https://tests.stockfishchess.org/nns?network_name=nn-61e7af4bb97d
 - The network file is bundled separately under legal/ for rebuilding.

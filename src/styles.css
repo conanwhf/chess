@@ -169,6 +169,7 @@ select { display: block; width: 100%; min-height: 48px; border: 1px solid #bbcfc
 .legal-content { padding: 20px; font-size: 13px; line-height: 1.7; }
 .legal-content h3 { font-size: 16px; margin-bottom: 10px; }
 .legal-content p { margin: 8px 0; }
+.legal-content code { overflow-wrap: anywhere; font-size: 10px; }
 .legal-content a { color: var(--green); }
 .legal-content pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f1f4f1; padding: 12px; max-height: 300px; overflow: auto; font-size: 10px; }
 .spin { animation: spin 1.2s linear infinite; }

@@ -9,7 +9,7 @@ for (const file of ['stockfish-19-lite-single.js', 'stockfish-19-lite-single.was
 }
 
 const packages = ['react', 'react-dom', 'scheduler', 'chess.js', 'lucide-react', '@capacitor/core', '@capacitor/android', '@capacitor/app', 'stockfish'];
-const notices = [await readFile('THIRD_PARTY_NOTICES.md', 'utf8')];
+const notices = [await readFile('THIRD_PARTY_NOTICES.md', 'utf8'), await readFile('public/legal/STOCKFISH-BUILD.txt', 'utf8')];
 for (const name of packages) {
   const dir = join('node_modules', name);
   const pkg = JSON.parse(await readFile(join(dir, 'package.json'), 'utf8'));

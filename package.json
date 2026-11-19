@@ -1,6 +1,6 @@
 {
   "name": "little-chess",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "license": "GPL-3.0-only",
@@ -14,8 +14,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:android": "node tests/android-smoke.mjs",
     "android:sync": "npm run build && cap sync android",
-    "android:debug": "npm run android:sync && cd android && ./gradlew assembleDebug"
+    "android:debug": "npm run android:sync && cd android && ./gradlew :app:assembleDebug"
   },
   "dependencies": {
     "@capacitor/android": "8.6.2",

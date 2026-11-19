@@ -1,6 +1,6 @@
 Stockfish.js 19.0.0 / GPLv3 / unmodified npm binary
 
-Corresponding source: stockfish-19.0.0-source.tar.gz in this directory.
+Corresponding source: stockfish-19.0.0-source.zip in this directory.
 Original URL: https://github.com/nmrugg/stockfish.js/archive/refs/tags/v19.0.0.tar.gz
 Neural network: nn-61e7af4bb97d.nnue in this directory.
 Original URL: https://tests.stockfishchess.org/api/nn/nn-61e7af4bb97d.nnue
@@ -8,7 +8,7 @@ Original URL: https://tests.stockfishchess.org/api/nn/nn-61e7af4bb97d.nnue
 Rebuild (not required for building Little Chess):
 1. Extract the source archive.
 2. Install Emscripten and its dependencies, Node.js, make, and a C++ build toolchain.
-3. See build.js in the archive for the required Emscripten version and flags.
+3. Use Emscripten 3.1.7 as specified by build.js in this source release.
 4. Copy nn-61e7af4bb97d.nnue into the extracted src/ directory.
 5. From the extracted root, run:
    node build.js --lite --single-threaded --no-split

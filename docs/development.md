@@ -39,11 +39,29 @@ npm run android:debug
 
 本地 SDK / JDK / Gradle 缓存可放在用户选择的位置，不需要写入工程。受限环境可另设 `ANDROID_USER_HOME` 与 `GRADLE_USER_HOME`，避免工具向不可写的默认目录写缓存。
 
-本工程使用 Capacitor 8.6.2，`minSdk=24`、`compileSdk=targetSdk=36`、Android Gradle Plugin 8.13.0。主要验收设备为 Android 13 平板。AndroidManifest 不申请 `INTERNET` 或其他权限；WebView 资源通过 Capacitor 本地拦截器读取。
+本工程使用 Capacitor 8.6.2，`minSdk=24`、`compileSdk=targetSdk=36`、Android Gradle Plugin 8.13.0。主要验收设备为 Android 13 平板。AndroidManifest 不申请联网、位置、相机或存储权限；WebView 资源通过 Capacitor 本地拦截器读取。AndroidX 自动合并一个本应用签名级接收器权限，不属于用户敏感权限。
+
+本轮可复用的调试签名密钥已放入被 Git 忽略的 `.cache/android-user/debug.keystore`。后续为这台平板构建可覆盖安装的调试版本时，在仓库根目录设置 `ANDROID_USER_HOME="$PWD/.cache/android-user"` 后再构建。备份该文件但不要提交或随 APK 分发；丢失密钥后，新签名的 APK 不能覆盖旧安装。它仍不是正式发布密钥。后续交付还应递增 `android/app/build.gradle` 的 `versionCode`。
+
+## Android 模拟器验收
+
+准备已启动的 Android 13 ARM64 平板模拟器，安装调试 APK 并打开应用。模拟器必须允许 WebView 调试，调试包默认启用。
+
+```sh
+adb -s emulator-5554 install -r android/app/build/outputs/apk/debug/app-debug.apk
+adb -s emulator-5554 shell am start -n com.conanwhf.littlechess/.MainActivity
+ANDROID_SERIAL=emulator-5554 npm run test:android
+```
+
+`ANDROID_HOME` 必须已设置，脚本通过 Playwright 官方 Android WebView 接口连接本地 adb。只允许明确指定的模拟器，不会对真机执行；它会替换模拟器中的当前棋局、关闭模拟器 Wi-Fi / 移动数据，并旋转屏幕。通过后输出逐项结果，截图写入 `artifacts/android-*.png`。实际触控和小米系统差异仍需真机验收。
+
+本轮临时工具链位于 `/tmp/chess-toolchain`，包含 JDK、SDK、Gradle 缓存和模拟器。它不是仓库的一部分，也不是复现构建的固定路径。新机器可使用 Android Studio 安装相同版本的 SDK。
 
 ## 源码与资源
 
 `npm run prepare:assets` 只复制单线程 lite 引擎，生成原创棋子与图标，并汇总实际依赖的许可证。不要将 Stockfish 整个 npm 包（约 200 MB）复制进 APK。`public/legal/` 保留对应版本源码、神经网络与构建说明，可离线取得。
+
+源码附件使用 ZIP，不能直接改用 `.gz`：Android AAPT 会自动解压 `.gz` 资产并去掉扩展名，导致资源路径变化。构建说明在应用的开源声明中直接读取，不依赖外部浏览器。
 
 ## Git 迭代
 

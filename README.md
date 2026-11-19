@@ -2,6 +2,19 @@
 
 给初学国际象棋的孩子使用的离线 Android 应用。中文和英文同时显示，无广告、无账户、无内购、无次数限制。
 
+## 运行与安装
+
+当前版本 `0.3.0`，主要面向小米 Pad、Android 13。双人对战是同机轮流下棋，不是联网对战。六档棋力从随机合法走子开始，不对应经过标定的 Elo。
+
+```sh
+npm ci
+npm run dev
+```
+
+构建 APK：先准备 JDK 21 与 Android SDK，执行 `npm run android:debug`。输出 `android/app/build/outputs/apk/debug/app-debug.apk`；本轮交付另复制到 `artifacts/little-chess-0.3.0-debug.apk`。产物不提交 Git，也没有自动推送或发布。
+
+已通过 53 项单元测试、14 项 Chrome 集成测试和 Android 13 模拟器离线验收。仍需在实际小米 Pad 验证触控、显示比例及系统后台管理。调试 APK 用于个人试用，不是正式签名发布包。
+
 ## 交付目标
 
 - 简洁、清晰的棋盘与立体感棋子，附中英文棋子名称。
