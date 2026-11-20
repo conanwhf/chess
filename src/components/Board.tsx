@@ -15,10 +15,11 @@ interface Props {
   hints: Candidate[];
   focusedHint: number | null;
   showNames: boolean;
+  showLegalTargets: boolean;
   disabled: boolean;
 }
 
-export function Board({ chess, orientation, selected, onSquare, onMove, hints, focusedHint, showNames, disabled }: Props) {
+export function Board({ chess, orientation, selected, onSquare, onMove, hints, focusedHint, showNames, showLegalTargets, disabled }: Props) {
   const gesture = useRef<{ id: number; x: number; y: number; from: Square | null; moved: boolean; fen: string } | null>(null);
   const suppressClick = useRef(false);
   const [drag, setDrag] = useState<{ from: Square; x: number; y: number; to: Square | null } | null>(null);
@@ -29,7 +30,7 @@ export function Board({ chess, orientation, selected, onSquare, onMove, hints, f
   const files = (orientation === 'w' ? 'abcdefgh' : 'hgfedcba').split('');
   const ranks = orientation === 'w' ? [8, 7, 6, 5, 4, 3, 2, 1] : [1, 2, 3, 4, 5, 6, 7, 8];
   const source = drag?.from ?? selected;
-  const targets = new Set(source ? chess.moves({ square: source, verbose: true }).map(m => m.to) : []);
+  const targets = new Set(showLegalTargets && source ? chess.moves({ square: source, verbose: true }).map(m => m.to) : []);
   const draggedPiece = drag ? chess.get(drag.from) : null;
   const squareAt = (board: HTMLElement, x: number, y: number) => {
     const target = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-square]');

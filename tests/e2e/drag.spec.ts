@@ -130,3 +130,49 @@ test('pausing during a drag cancels it; computer turn cannot be dragged', async 
   await expect(board).toHaveAttribute('data-fen', thinking!);
   await expect(page.locator('.drag-piece')).toHaveCount(0);
 });
+
+for (const { mode, difficulty } of [
+  ...[0, 1, 2, 3, 4, 5].map(difficulty => ({ mode: 'computer' as const, difficulty })),
+  { mode: 'local' as const, difficulty: 5 },
+]) test(`legal markers follow current game: ${mode} level ${difficulty + 1}`, async ({ page }) => {
+  const game = createGame({ ...DEFAULT_SETTINGS, mode, difficulty }, '7k/8/8/3p4/4P3/8/8/7K w - - 0 1');
+  await page.addInitScript(raw => localStorage.setItem('little-chess.game', raw), serialize(game));
+  await page.goto('/');
+  const visible = mode === 'local' || difficulty < 3;
+  const board = page.getByTestId('board'), fen = await board.getAttribute('data-fen');
+  await square(page, 'e4').click();
+  await expect(square(page, 'e4')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.legal-target')).toHaveCount(visible ? 2 : 0);
+  await expect(page.locator('.capture-target')).toHaveCount(visible ? 1 : 0);
+  await square(page, 'e6').click();
+  await expect(board).toHaveAttribute('data-fen', fen!);
+  const a = await center(page, 'e4'), b = await center(page, 'd5');
+  await page.mouse.move(a.x, a.y); await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 8 });
+  await expect(page.locator('.drag-piece')).toBeVisible();
+  await expect(page.locator('.legal-target')).toHaveCount(visible ? 2 : 0);
+  await expect(page.locator('.drop-target')).toHaveCount(visible ? 1 : 0);
+  await page.mouse.up();
+  await expect(square(page, 'd5')).toHaveAccessibleName('d5 White Pawn');
+  await expect(square(page, 'e4')).toHaveAccessibleName('e4 Empty');
+});
+
+test('Thinker keeps manual hints and ignores default-level changes for legal markers', async ({ page }) => {
+  const game = createGame({ ...DEFAULT_SETTINGS, difficulty: 3 });
+  await page.addInitScript(raw => localStorage.setItem('little-chess.game', raw), serialize(game));
+  await page.goto('/');
+  await page.getByTestId('menu').click();
+  await page.locator('#default-difficulty').selectOption('5');
+  await page.locator('#default-difficulty').selectOption('0');
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('.board-toolbar').getByRole('button', { name: 'Resume' }).click();
+  await square(page, 'e2').click();
+  await expect(page.locator('.legal-target')).toHaveCount(0);
+  await expect(page.getByTestId('player-b')).toContainText('Thinker');
+  await page.screenshot({ path: 'artifacts/thinker-no-legal-targets.png' });
+  await page.locator('.board-toolbar').getByRole('button', { name: 'Hint', exact: true }).click();
+  await expect(page.getByTestId('hint-arrow')).toHaveCount(3);
+  await expect(page.getByTestId('candidate')).toHaveCount(3);
+  await square(page, 'e2').click(); await square(page, 'e4').click();
+  await expect(square(page, 'e4')).toHaveAccessibleName('e4 White Pawn');
+});

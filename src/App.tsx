@@ -275,7 +275,7 @@ export function App() {
       <section className="play-area" aria-label={t('对弈', 'Play')}>
         {playerBar(orientation === 'w' ? 'b' : 'w')}
         <div className="board-slot"><div className="board-stage">
-          <Board chess={chess} orientation={orientation} selected={selected} onSquare={onSquare} onMove={tryMove} hints={hints} focusedHint={focusedHint} showNames={game.settings.names} disabled={blocked} />
+          <Board chess={chess} orientation={orientation} selected={selected} onSquare={onSquare} onMove={tryMove} hints={hints} focusedHint={focusedHint} showNames={game.settings.names} showLegalTargets={game.settings.mode === 'local' || game.settings.difficulty < 3} disabled={blocked} />
           {game.paused && !modal && !ended && <div className="pause-overlay"><Pause size={30} /><Bi zh="休息一下" en="Game paused" /><button className="primary-button" onClick={() => { setError(''); setRetry(n => n + 1); setGame(g => resume(g, performance.now())); }}><Play size={20} /><Bi zh="继续下棋" en="Resume" /></button></div>}
         </div></div>
         {playerBar(orientation)}

@@ -106,3 +106,12 @@ Android 验证使用已有 API 33 / WebView 109 平板模拟器，包含冷启�
 - APK v2 签名验证通过，无 INTERNET 或敏感权限；24 个应用资源与最终 `dist/` 逐字节一致；`git diff --check` 通过。
 
 本地产物为 `artifacts/little-chess-0.4.2-debug.apk`。本轮只做本地提交，不自动推送或发布 Release。小米 Pad 真机的手指遮挡、拖动手感和系统差异仍未验证；模拟器通过不等同于真机验收。
+
+## 0.4.3 高档位落点显示 · 2026-11-20
+
+- `npm test`：69 / 69 通过；`npm run android:sync`：TypeScript、生产构建与原生资源同步通过。
+- 沙盒外 `npm run test:e2e`：39 / 39 通过，31.1 秒。新增覆盖六档人机及同机双人的自动落点显示；验证圆点、吃子圈和拖动目标边框一起隐藏，合法吃子仍成功，非法点击不改变棋局。
+- 第 4 档修改设备默认棋力后仍隐藏自动落点，主动请求仍返回三个真实引擎候选；点击走棋正常。人工截图确认选中棋子保留高亮，合法目标无标记。
+- Gradle `:app:assembleDebug` 成功，`versionName=0.4.3`、`versionCode=5`；APK v2 签名验证通过，24 个应用资源与最终 `dist/` 逐字节一致。
+- 本轮只修改落点呈现条件，未重跑 Android 模拟器验收；原生拖动的最近一次验收为 0.4.2 的 11 组测试。小米 Pad 真机仍未复测。
+- `git diff --check` 通过。产物为 `artifacts/little-chess-0.4.3-debug.apk`；用户授权将本次修改及此前的拖动功能一起推送，不创建 Release。
