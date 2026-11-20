@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Chess } from 'chess.js';
-import { createGame, DEFAULT_SETTINGS, deserialize, formatTime, pause, play, position, result, resume, serialize, tick, undo, type Game } from '../../src/game';
+import { changeTime, createGame, DEFAULT_SETTINGS, deserialize, formatTime, pause, play, position, result, resume, serialize, tick, undo, type Game } from '../../src/game';
 
 function sequence(moves: string[], g: Game = createGame({ ...DEFAULT_SETTINGS, mode: 'local' })) {
   return moves.reduce((game, move, i) => play(game, move, i * 1000), g);
@@ -139,5 +139,55 @@ describe('save boundary', () => {
   it('a fresh game stays playable after restore', () => {
     expect(deserialize(serialize(createGame())).paused).toBe(false);
     expect(position(createGame()).fen()).toBe(new Chess().fen());
+  });
+});
+
+describe('changing time controls during a game', () => {
+  const started = () => sequence(['e2e4', 'e7e5']);
+  it('keeps position and turn, resets both clocks, and charges the current player', () => {
+    const game = started();
+    const timed = changeTime(game, '5', 9000);
+    expect(position(timed).fen()).toBe(position(game).fen());
+    expect(timed.moves).toBe(game.moves);
+    expect(timed.clocks).toEqual({ w: 300000, b: 300000 });
+    expect(tick(timed, 10000).clocks).toEqual({ w: 299000, b: 300000 });
+  });
+  it('does not start the clock before the first move or while paused', () => {
+    expect(changeTime(createGame(), '5', 9000).clockAt).toBeNull();
+    const game = changeTime(pause(started(), 5000), '10', 9000);
+    expect(tick(game, 999999).clocks).toEqual({ w: 600000, b: 600000 });
+    expect(tick(resume(game, 1000000), 1001000).clocks.w).toBe(599000);
+  });
+  it('disabling the clock stops counting and reenabling resets both sides', () => {
+    const timed = tick(changeTime(started(), '5', 2000), 7000);
+    const untimed = changeTime(timed, 'none', 7000);
+    expect(tick(untimed, 999999).timeout).toBeNull();
+    expect(untimed.clockAt).toBeNull();
+    expect(changeTime(untimed, '15', 999999).clocks).toEqual({ w: 900000, b: 900000 });
+  });
+  it('does not reset the clocks when applying the same control', () => {
+    const timed = changeTime(started(), '5', 2000);
+    expect(changeTime(timed, '5', 7000).clocks.w).toBe(295000);
+  });
+  it('rebases old snapshots and restores new-control snapshots on undo', () => {
+    const timed = changeTime(started(), '10+5', 2000);
+    const played = play(timed, 'g1f3', 4000);
+    expect(played.clocks.w).toBe(603000);
+    const back = undo(played, 5000);
+    expect(back.clocks.w).toBe(598000);
+    const earlier = undo(back, 6000);
+    expect(earlier.settings.time).toBe('10+5');
+    expect(earlier.clocks).toEqual({ w: 600000, b: 600000 });
+    const restored = deserialize(serialize(earlier));
+    expect(restored.settings.time).toBe('10+5');
+    expect(restored.clocks).toEqual(earlier.clocks);
+  });
+  it('does not revive checkmate or an expired clock', () => {
+    const ended = sequence(['f2f3', 'e7e5', 'g2g4', 'd8h4']);
+    expect(changeTime(ended, '5', 9999)).toBe(ended);
+    const timed = changeTime(started(), '5', 2000);
+    const expired = changeTime(timed, 'none', 302000);
+    expect(expired.settings.time).toBe('5');
+    expect(expired.timeout).toBe('w');
   });
 });

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AUDIO_KEY, GameAudio, type AudioSettings, type Sound } from './audio';
 
 export function useAudio(active: boolean, onError: (message: string) => void) {
-  const [settings, setSettings] = useState<AudioSettings>({ effects: true, music: true });
+  const [settings, setSettings] = useState<AudioSettings>({ effects: true });
   const audio = useRef<GameAudio | null>(null);
   const interacted = useRef(false);
   const current = useRef({ active, settings });
@@ -18,8 +18,8 @@ export function useAudio(active: boolean, onError: (message: string) => void) {
       const raw = localStorage.getItem(AUDIO_KEY);
       if (raw) {
         const saved: unknown = JSON.parse(raw);
-        if (!saved || typeof saved !== 'object' || !('effects' in saved) || typeof saved.effects !== 'boolean' || !('music' in saved) || typeof saved.music !== 'boolean') throw new Error('声音设置无效 / Invalid sound settings');
-        setSettings({ effects: saved.effects, music: saved.music });
+        if (!saved || typeof saved !== 'object' || !('effects' in saved) || typeof saved.effects !== 'boolean') throw new Error('声音设置无效 / Invalid sound settings');
+        setSettings({ effects: saved.effects });
       }
     } catch (error) { fail(error); }
     const unlock = () => {

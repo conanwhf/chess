@@ -104,6 +104,19 @@ export function resume(game: Game, now: number): Game {
   return { ...game, paused: false, clockAt: game.started && game.settings.time !== 'none' && !result(game) ? now : null };
 }
 
+export function changeTime(game: Game, time: Settings['time'], now: number): Game {
+  const current = tick(game, now);
+  if (current.settings.time === time || result(current)) return current;
+  const control = TIME_CONTROLS.find(t => t.id === time)!;
+  const clocks = { w: control.seconds * 1000, b: control.seconds * 1000 };
+  return {
+    ...current, settings: { ...current.settings, time }, clocks,
+    // Earlier clock snapshots belong to a different control, so rebase them too.
+    snapshots: current.snapshots.map(snapshot => ({ ...snapshot, clocks: { ...clocks } })),
+    clockAt: current.started && !current.paused && control.seconds ? now : null,
+  };
+}
+
 export function undo(game: Game, now: number): Game {
   if (!game.moves.length) return game;
   let count = game.moves.length - 1;

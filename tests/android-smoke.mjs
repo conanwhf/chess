@@ -27,7 +27,7 @@ try {
       constructor() { super(); window.observedAudio.context = this; }
       createGain() {
         const gain = super.createGain();
-        if (window.observedAudio.buses.length < 2) {
+        if (window.observedAudio.buses.length < 1) {
           const analyser = this.createAnalyser();
           gain.connect(analyser);
           window.observedAudio.buses.push(analyser);
@@ -137,26 +137,36 @@ try {
   expect(await page.evaluate(() => [scrollX, scrollY])).toEqual([0, 0]);
   console.log('PASS: native touch swipe does not scroll or move pieces');
 
+  await page.getByTestId('clock-w').click();
+  await page.locator('#live-time').selectOption('none');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.getByTestId('clock-w')).toHaveText('Untimed');
+  await expect(board).toHaveAttribute('data-fen', originalFen);
+  await menu('Time control');
+  await page.locator('#live-time').selectOption('10');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.getByTestId('clock-w')).toHaveText('10:00');
+  await expect(page.getByTestId('clock-b')).toHaveText('10:00');
+  await expect(board).toHaveAttribute('data-fen', originalFen);
+  console.log('PASS: clocks and gear settings change time controls without replacing the game');
+
   await menu('Sound');
-  await page.getByRole('checkbox', { name: 'Background music' }).check();
+  await expect(page.getByRole('checkbox', { name: 'Background music' })).toHaveCount(0);
   await page.getByRole('checkbox', { name: 'Sound effects' }).check();
   const energy = index => page.evaluate(i => {
     const values = new Float32Array(2048);
     window.observedAudio.buses[i]?.getFloatTimeDomainData(values);
     return values.reduce((sum, value) => sum + value * value, 0);
   }, index);
-  await expect.poll(() => energy(0)).toBeGreaterThan(.001);
-  await page.getByRole('checkbox', { name: 'Background music' }).uncheck();
   await expect.poll(() => energy(0)).toBe(0);
   await page.getByRole('button', { name: 'Test sound' }).click();
-  await expect.poll(() => energy(1), { intervals: [10, 20, 30] }).toBeGreaterThan(.001);
-  await page.getByRole('checkbox', { name: 'Background music' }).check();
+  await expect.poll(() => energy(0), { intervals: [10, 20, 30] }).toBeGreaterThan(.001);
   adb('shell', 'input', 'keyevent', 'KEYCODE_HOME');
   await page.waitForTimeout(800);
   adb('shell', 'am', 'start', '-n', `${pkg}/.MainActivity`);
   await expect.poll(() => page.evaluate(() => window.observedAudio.context.state)).toBe('suspended');
   await page.getByRole('button', { name: 'Close', exact: true }).click();
-  console.log('PASS: native music/effects produce audio samples and background stops sound even in sound settings');
+  console.log('PASS: native effects produce samples without music and background suspends audio');
 } finally {
   await device.close();
 }

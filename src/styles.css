@@ -33,6 +33,8 @@ h1 { font-size: 21px; font-weight: 750; }
 .icon-button:hover, .language-button:hover { background: #e8eee9; }
 .icon-button svg { width: 21px; height: 21px; }
 .language-button { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 60px; height: 44px; border-radius: 6px; font-size: 13px; }
+.language-button > span { color: var(--muted); }
+.language-button > .current-language { color: var(--green-dark); font-weight: 750; }
 .game-layout { flex: 1; min-height: 0; width: min(100%, 820px, calc(100dvh - 180px)); margin: 0 auto; padding: 6px 0 10px; }
 .play-area { height: 100%; min-width: 0; display: grid; grid-template-rows: 48px minmax(0, 1fr) 48px 44px 56px; }
 .player-bar { min-height: 0; display: flex; align-items: center; gap: 10px; padding: 2px 0 2px 18px; }
@@ -45,6 +47,8 @@ h1 { font-size: 21px; font-weight: 750; }
 .clock .bi { font-size: 14px; }
 .clock-active { background: #e3f0e8; border-color: #9fc6ad; color: #155d42; }
 .clock-low { color: #b63d35; }
+.clock:hover:not(:disabled) { border-color: var(--green); }
+.clock:disabled { opacity: 1; }
 .board-slot { min-height: 0; min-width: 0; container-type: size; display: flex; align-items: center; justify-content: center; }
 .board-stage { position: relative; width: min(100cqw, 100cqh); aspect-ratio: 1; }
 .board-wrap { position: relative; padding-left: 18px; padding-bottom: 18px; }
@@ -94,6 +98,8 @@ h2 { font-size: 18px; font-weight: 650; }
 .move-row:nth-child(odd) { background: #ebf0ec; }
 .move-row > :first-child { color: #8a998f; }
 .menu-items, .audio-settings { padding: 8px 24px 20px; }
+.default-settings { padding-top: 12px; border-bottom: 1px solid var(--border); }
+.default-settings select { margin-bottom: 12px; }
 .menu-items > button { width: 100%; display: flex; align-items: center; gap: 14px; min-height: 50px; text-align: left; font-size: 15px; border-bottom: 1px solid var(--border); }
 .menu-items > button > svg { width: 20px; height: 20px; color: var(--green); }
 .menu-items > button:hover:not(:disabled) { background: #edf4ee; }

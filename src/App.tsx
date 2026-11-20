@@ -1,20 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { App as NativeApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { ArrowLeftRight, BookOpen, CircleHelp, Globe, Languages, Lightbulb, LoaderCircle, Menu, Pause, Play, Plus, RotateCcw, ShieldCheck, Trophy, Users, Volume2, X } from 'lucide-react';
+import { ArrowLeftRight, BookOpen, Check, CircleHelp, Clock3, Globe, Lightbulb, LoaderCircle, Pause, Play, Plus, RotateCcw, Settings as SettingsIcon, ShieldCheck, Trophy, Users, Volume2, X } from 'lucide-react';
 import { Chess, type Color, type PieceSymbol, type Square } from 'chess.js';
 import { Bi } from './components/Bi';
 import { Board, HINT_COLORS } from './components/Board';
 import { Modal } from './components/Modal';
 import { analyze, type Candidate } from './engine';
 import { LEVELS, needsEngine, randomMove } from './difficulty';
-import { createGame, deserialize, formatTime, pause, play, position, result, resume, serialize, tick, TIME_CONTROLS, undo, type Game, type Settings } from './game';
+import { changeTime, createGame, DEFAULT_SETTINGS, deserialize, formatTime, pause, play, position, result, resume, serialize, tick, TIME_CONTROLS, undo, type Game, type Settings } from './game';
 import { PIECES, pieceUrl } from './pieces';
 import { version } from '../package.json';
 import { useAudio } from './useAudio';
 import { useLanguage } from './language';
 
 const STORAGE_KEY = 'little-chess.game';
+const DEFAULT_LEVEL_KEY = 'little-chess.default-level';
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);
 const aborted = (error: unknown) => error instanceof DOMException && error.name === 'AbortError';
 
@@ -27,23 +28,35 @@ function afterPageLoad(start: () => () => void) {
   return () => { window.removeEventListener('load', ready); cleanup?.(); };
 }
 
-function load() {
+function loadDefaultLevel() {
+  try {
+    const raw = localStorage.getItem(DEFAULT_LEVEL_KEY);
+    const level: unknown = raw === null ? 0 : JSON.parse(raw);
+    if (typeof level !== 'number' || !Number.isInteger(level) || level < 0 || level >= LEVELS.length) throw new Error('默认棋力无效 / Invalid default level');
+    return { level, error: '' };
+  } catch (error) { return { level: 0, error: `默认棋力未能读取 / Default level could not be read: ${message(error)}` }; }
+}
+
+function load(difficulty: number) {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return { game: raw ? deserialize(raw) : createGame(), error: '', failed: false };
+    return { game: raw ? deserialize(raw) : createGame({ ...DEFAULT_SETTINGS, difficulty }), error: '', failed: false };
   } catch (error) {
-    return { game: createGame(), error: `存档未能读取，开始新棋局可重新保存 / Save could not be read; start a new game to save again. ${message(error)}`, failed: true };
+    return { game: createGame({ ...DEFAULT_SETTINGS, difficulty }), error: `存档未能读取，开始新棋局可重新保存 / Save could not be read; start a new game to save again. ${message(error)}`, failed: true };
   }
 }
 
 export function App() {
   const language = useLanguage();
   const { t } = language;
-  const [boot] = useState(load);
+  const [levelPreference] = useState(loadDefaultLevel);
+  const [defaultDifficulty, setDefaultDifficulty] = useState(levelPreference.level);
+  const [boot] = useState(() => load(levelPreference.level));
   const [game, setGame] = useState<Game>(boot.game);
-  const [error, setError] = useState(boot.error);
-  const [modal, setModal] = useState<'settings' | 'help' | 'legal' | 'audio' | 'menu' | 'history' | null>(null);
+  const [error, setError] = useState(boot.error || levelPreference.error);
+  const [modal, setModal] = useState<'settings' | 'help' | 'legal' | 'audio' | 'menu' | 'history' | 'time' | null>(null);
   const [draft, setDraft] = useState<Settings>(boot.game.settings);
+  const [draftTime, setDraftTime] = useState<Settings['time']>(boot.game.settings.time);
   const [orientation, setOrientation] = useState<Color>(boot.game.settings.mode === 'computer' ? boot.game.settings.player : 'w');
   const [selected, setSelected] = useState<Square | null>(null);
   const [promotion, setPromotion] = useState<{ from: Square; to: Square } | null>(null);
@@ -196,7 +209,13 @@ export function App() {
     } catch (e) { if (!aborted(e)) setError(message(e)); }
     finally { if (hintController.current === controller) { hintController.current = null; setHintBusy(false); } }
   };
-  const openSettings = () => { pauseNow(); setDraft({ ...game.settings }); setModal('settings'); };
+  const openSettings = () => { pauseNow(); setDraft({ ...game.settings, difficulty: defaultDifficulty }); setModal('settings'); };
+  const changeDefaultLevel = (level: number) => {
+    setDefaultDifficulty(level);
+    try { localStorage.setItem(DEFAULT_LEVEL_KEY, JSON.stringify(level)); }
+    catch (error) { setError(`默认棋力未保存 / Default level not saved: ${message(error)}`); }
+  };
+  const openTime = () => { pauseNow(); setDraftTime(game.settings.time); setModal('time'); };
   const start = () => {
     clearHints(); setError(''); setSelected(null); setPromotion(null); canSave.current = true;
     const fresh = createGame(draft);
@@ -220,9 +239,9 @@ export function App() {
         <span className="player-detail">{computer ? `${game.settings.difficulty + 1} · ${t(LEVELS[game.settings.difficulty].zh, LEVELS[game.settings.difficulty].en)}` : side === 'w' ? t('白方', 'White') : t('黑方', 'Black')}</span>
       </div>
       {active && <span className="turn-dot" aria-label={t('当前走棋方', 'Side to move')} />}
-      <div className={`clock ${active && !game.paused ? 'clock-active' : ''} ${game.settings.time !== 'none' && game.clocks[side] < 30000 ? 'clock-low' : ''}`} data-testid={`clock-${side}`}>
+      <button className={`clock ${active && !game.paused ? 'clock-active' : ''} ${game.settings.time !== 'none' && game.clocks[side] < 30000 ? 'clock-low' : ''}`} data-testid={`clock-${side}`} onClick={openTime} disabled={!!ended} title={t('调整计时', 'Change time control')}>
         {game.settings.time === 'none' ? <Bi zh="不限时" en="Untimed" /> : formatTime(game.clocks[side])}
-      </div>
+      </button>
     </div>;
   };
 
@@ -241,8 +260,8 @@ export function App() {
     <header className="app-header">
       <div className="brand"><div className="brand-mark"><img src={pieceUrl('w', 'n')} alt="" /></div><h1><Bi zh="小小棋手" en="Little Chess" /></h1></div>
       <div className="header-actions">
-        <button className="language-button" data-testid="language" title={t('Switch to English', '切换为中文')} aria-label={t('Switch to English', '切换为中文')} onClick={() => language.change(language.language === 'zh' ? 'en' : 'zh')}><Languages size={19} /><span>{language.language === 'zh' ? 'EN' : '中'}</span></button>
-        <button className="icon-button" data-testid="menu" title={t('菜单', 'Menu')} aria-label={t('菜单', 'Menu')} onClick={() => { pauseNow(); setModal('menu'); }}><Menu /></button>
+        <button className="language-button" data-testid="language" title={t('Switch to English', '切换为中文')} aria-label={t('Switch to English', '切换为中文')} onClick={() => language.change(language.language === 'zh' ? 'en' : 'zh')}><span className={language.language === 'zh' ? 'current-language' : ''}>中</span><span aria-hidden="true">/</span><span className={language.language === 'en' ? 'current-language' : ''}>En</span></button>
+        <button className="icon-button" data-testid="menu" title={t('设置', 'Settings')} aria-label={t('设置', 'Settings')} onClick={() => { pauseNow(); setModal('menu'); }}><SettingsIcon /></button>
       </div>
     </header>
 
@@ -271,7 +290,9 @@ export function App() {
 
     </main>
 
-    {modal === 'menu' && <Modal zh="菜单" en="Menu" onClose={() => setModal(null)}><div className="menu-items">
+    {modal === 'menu' && <Modal zh="设置" en="Settings" onClose={() => setModal(null)}><div className="menu-items">
+      <div className="default-settings"><label className="field-label" htmlFor="default-difficulty"><Bi zh="默认电脑棋力" en="Default computer level" /><span>{defaultDifficulty + 1} / 6</span></label><select id="default-difficulty" value={defaultDifficulty} onChange={e => changeDefaultLevel(Number(e.target.value))}>{LEVELS.map((level, i) => <option key={level.en} value={i}>{i + 1} · {t(level.zh, level.en)}</option>)}</select></div>
+      <button onClick={openTime} disabled={!!ended}><Clock3 /><Bi zh="计时设置" en="Time control" /></button>
       <button onClick={() => setModal('history')} aria-label={t('棋谱', 'Move history')}><BookOpen /><Bi zh="棋谱" en="Move history" /><span className="move-count" aria-hidden="true">{history.length}</span></button>
       <button onClick={() => setModal('help')}><CircleHelp /><Bi zh="棋子帮助" en="Piece guide" /></button>
       <button onClick={() => setModal('audio')}><Volume2 /><Bi zh="声音" en="Sound" /></button>
@@ -287,8 +308,14 @@ export function App() {
 
     {modal === 'audio' && <Modal zh="声音" en="Sound" onClose={() => setModal(null)}><div className="audio-settings">
       <label className="names-toggle"><Bi zh="音效" en="Sound effects" /><input type="checkbox" checked={audio.settings.effects} onChange={e => audio.change({ ...audio.settings, effects: e.target.checked })} /></label>
-      <label className="names-toggle"><Bi zh="背景音乐" en="Background music" /><input type="checkbox" checked={audio.settings.music} onChange={e => audio.change({ ...audio.settings, music: e.target.checked })} /></label>
       <button className="text-button" disabled={!audio.settings.effects} onClick={() => audio.play('capture')}><Volume2 size={18} /><Bi zh="试听音效" en="Test sound" /></button>
+    </div></Modal>}
+
+    {modal === 'time' && <Modal zh="计时设置" en="Time control" onClose={() => setModal(null)}><div className="settings-form">
+      <label className="field-label" htmlFor="live-time"><Bi zh="每方用时" en="Time per side" /></label><select id="live-time" value={draftTime} onChange={e => setDraftTime(e.target.value as Settings['time'])}>{TIME_CONTROLS.map(control => <option key={control.id} value={control.id}>{t(control.zh, control.en)}</option>)}</select>
+      <p className="replace-note"><Bi zh="更改后重设双方时间，保留当前棋局。" en="Changing the control resets both clocks and keeps this game." /></p>
+      <button className="primary-button full-width" disabled={!!ended} onClick={() => { setGame(g => changeTime(g, draftTime, performance.now())); setModal(null); }}><Check size={20} /><Bi zh="应用" en="Apply" /></button>
+      <button className="text-button full-width" onClick={() => setModal(null)}><Bi zh="取消" en="Cancel" /></button>
     </div></Modal>}
 
     {modal === 'settings' && <Modal zh="开始一局" en="Set up a game" onClose={() => setModal(null)}>

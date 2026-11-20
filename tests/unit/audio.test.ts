@@ -27,7 +27,7 @@ describe('offline audio', () => {
   it.each([['move', 1], ['capture', 2], ['check', 3], ['end', 4]] as const)('plays distinct %s cue', async (sound, count) => {
     vi.stubGlobal('AudioContext', FakeContext);
     const player = new GameAudio(vi.fn());
-    player.configure({ effects: true, music: false }, true);
+    player.configure({ effects: true }, true);
     player.unlock();
     await Promise.resolve();
     player.play(sound);
@@ -35,19 +35,21 @@ describe('offline audio', () => {
     expect(FakeContext.last.oscillators.every(o => o.start.mock.calls.length === 1)).toBe(true);
     player.dispose();
   });
-  it('does not create a context when disabled and stops timers on pause/disposal', async () => {
+  it('stays silent without a cue, creates no music timers and respects pause/disposal', async () => {
     vi.useFakeTimers();
     const constructor = vi.fn(function () { return new FakeContext(); });
     vi.stubGlobal('AudioContext', constructor);
     const player = new GameAudio(vi.fn());
-    player.configure({ effects: false, music: false }, true);
+    player.configure({ effects: false }, true);
     player.unlock();
     expect(constructor).not.toHaveBeenCalled();
-    player.configure({ effects: true, music: true }, true);
+    player.configure({ effects: true }, true);
     player.unlock(); await Promise.resolve();
-    expect(vi.getTimerCount()).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(FakeContext.last.oscillators).toHaveLength(0);
+    player.play('move');
     const count = FakeContext.last.oscillators.length;
-    player.configure({ effects: true, music: true }, false);
+    player.configure({ effects: true }, false);
     player.play('end');
     expect(FakeContext.last.oscillators).toHaveLength(count);
     expect(vi.getTimerCount()).toBe(0);

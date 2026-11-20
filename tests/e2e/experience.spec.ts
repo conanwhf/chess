@@ -83,8 +83,9 @@ test('long history and help scroll inside dialogs, never the game screen', async
 });
 
 // Observe real Web Audio output, without adding test hooks to the application.
-test('real music and effects produce samples, independent toggles persist and pause silences', async ({ page }) => {
+test('effects produce samples with no music; legacy preferences persist and pause silences', async ({ page }) => {
   await page.addInitScript(() => {
+    if (!localStorage.getItem('little-chess.audio')) localStorage.setItem('little-chess.audio', JSON.stringify({ effects: true, music: true }));
     const Original = window.AudioContext;
     const observed = { context: null as AudioContext | null, buses: [] as AnalyserNode[], notes: 0 };
     Object.assign(window, { observedAudio: observed });
@@ -93,7 +94,7 @@ test('real music and effects produce samples, independent toggles persist and pa
       createOscillator() { observed.notes++; return super.createOscillator(); }
       createGain() {
         const gain = super.createGain();
-        if (observed.buses.length < 2) {
+        if (observed.buses.length < 1) {
           const analyser = this.createAnalyser();
           analyser.fftSize = 2048;
           gain.connect(analyser);
@@ -111,28 +112,24 @@ test('real music and effects produce samples, independent toggles persist and pa
     return values.reduce((sum, n) => sum + n * n, 0);
   }, bus);
   await openMenu(page, 'Sound');
-  await expect.poll(() => energy(0)).toBeGreaterThan(0.001);
-  await page.getByRole('checkbox', { name: 'Background music' }).uncheck();
+  await expect(page.getByRole('checkbox', { name: 'Background music' })).toHaveCount(0);
   await expect.poll(() => energy(0)).toBe(0);
+  expect(await page.evaluate(() => (window as unknown as { observedAudio: { notes: number } }).observedAudio.notes)).toBe(0);
   await page.getByRole('button', { name: 'Test sound' }).click();
-  await expect.poll(() => energy(1), { intervals: [10, 20, 30] }).toBeGreaterThan(0.001);
+  await expect.poll(() => energy(0), { intervals: [10, 20, 30] }).toBeGreaterThan(0.001);
   await page.getByRole('checkbox', { name: 'Sound effects' }).uncheck();
   await expect(page.getByRole('button', { name: 'Test sound' })).toBeDisabled();
   await expect.poll(() => page.evaluate(() => (window as unknown as { observedAudio: { context: AudioContext } }).observedAudio.context.state)).toBe('suspended');
   await page.reload();
   await openMenu(page, 'Sound');
   await expect(page.getByRole('checkbox', { name: 'Sound effects' })).not.toBeChecked();
-  await expect(page.getByRole('checkbox', { name: 'Background music' })).not.toBeChecked();
-  await page.getByRole('checkbox', { name: 'Background music' }).check();
-  await expect.poll(() => energy(0)).toBeGreaterThan(0.001);
+  await page.getByRole('checkbox', { name: 'Sound effects' }).check();
+  await page.getByRole('button', { name: 'Test sound' }).click();
+  await expect.poll(() => energy(0), { intervals: [10, 20, 30] }).toBeGreaterThan(0.001);
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await expect.poll(() => page.evaluate(() => (window as unknown as { observedAudio: { context: AudioContext } }).observedAudio.context.state)).toBe('suspended');
   await page.locator('.board-toolbar').getByRole('button', { name: 'Resume', exact: true }).click();
-  await expect.poll(() => energy(0)).toBeGreaterThan(0.001);
-  await openMenu(page, 'Sound');
-  await page.getByRole('checkbox', { name: 'Background music' }).uncheck();
-  await page.getByRole('checkbox', { name: 'Sound effects' }).check();
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect.poll(() => energy(0)).toBe(0);
   await page.getByTestId('new-game').click();
   await page.getByRole('button', { name: 'Two players' }).click();
   await page.getByRole('button', { name: 'Start game' }).click();
@@ -152,4 +149,87 @@ test('real music and effects produce samples, independent toggles persist and pa
   await move('e7', 'e5', 1);
   await move('g2', 'g4', 1);
   await move('d8', 'h4', 4);
+});
+
+test('gear changes only the default level; new-game overrides never change the default', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByTestId('language')).toHaveText('中/En');
+  await expect(page.getByTestId('menu')).toHaveAccessibleName('Settings');
+  await page.locator('[data-square="e2"]').click();
+  await page.locator('[data-square="e4"]').click();
+  await expect(page.getByTestId('board')).toHaveAttribute('data-fen', / w .* 2$/);
+  const fen = await page.getByTestId('board').getAttribute('data-fen');
+  await page.getByTestId('menu').click();
+  await page.locator('#default-difficulty').selectOption('5');
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.getByTestId('player-b')).toContainText('First steps');
+  await expect(page.getByTestId('board')).toHaveAttribute('data-fen', fen!);
+  await page.reload();
+  await expect(page.getByTestId('player-b')).toContainText('First steps');
+  await expect(page.getByTestId('board')).toHaveAttribute('data-fen', fen!);
+  await page.getByTestId('new-game').click();
+  await expect(page.locator('#difficulty')).toHaveValue('5');
+  await page.locator('#difficulty').selectOption('2');
+  await page.getByRole('button', { name: 'Start game' }).click();
+  await expect(page.getByTestId('player-b')).toContainText('Learner');
+  await page.getByTestId('menu').click();
+  await expect(page.locator('#default-difficulty')).toHaveValue('5');
+  await page.screenshot({ path: 'artifacts/settings-default-level.png' });
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByTestId('new-game').click();
+  await expect(page.locator('#difficulty')).toHaveValue('5');
+});
+
+test('clock and settings switch timed/untimed in place; cancelling never resets time', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('new-game').click();
+  await page.getByRole('button', { name: 'Two players' }).click();
+  await page.getByRole('button', { name: 'Start game' }).click();
+  await page.locator('[data-square="e2"]').click();
+  await page.locator('[data-square="e4"]').click();
+  const fen = await page.getByTestId('board').getAttribute('data-fen');
+  await page.getByTestId('clock-b').click();
+  await page.locator('#live-time').selectOption('5');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.getByTestId('clock-w')).toHaveText('05:00');
+  await expect(page.getByTestId('clock-b')).toHaveText('05:00');
+  await expect(page.getByTestId('board')).toHaveAttribute('data-fen', fen!);
+  await page.locator('.board-toolbar').getByRole('button', { name: 'Resume' }).click();
+  await expect(page.getByTestId('clock-b')).not.toHaveText('05:00');
+  await page.getByTestId('clock-w').click();
+  const remaining = await page.getByTestId('clock-b').textContent();
+  await page.locator('#live-time').selectOption('15');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(page.getByTestId('clock-b')).toHaveText(remaining!);
+  await openMenu(page, 'Time control');
+  await expect(page.locator('#live-time')).toHaveValue('5');
+  await page.locator('#live-time').selectOption('10+5');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.getByTestId('clock-w')).toHaveText('10:00');
+  await expect(page.getByTestId('clock-b')).toHaveText('10:00');
+  await expect(page.getByTestId('board')).toHaveAttribute('data-fen', fen!);
+  await page.getByTestId('clock-b').click();
+  await page.locator('#live-time').selectOption('none');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.getByTestId('clock-w')).toHaveText('Untimed');
+  await expect(page.getByTestId('clock-b')).toHaveText('Untimed');
+  await page.locator('.board-toolbar').getByRole('button', { name: 'Resume' }).click();
+  await page.locator('[data-square="e7"]').click();
+  await page.locator('[data-square="e5"]').click();
+  await page.locator('.board-toolbar').getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByTestId('board')).toHaveAttribute('data-fen', fen!);
+  await page.reload();
+  await expect(page.getByTestId('clock-b')).toHaveText('Untimed');
+  await expect(page.getByTestId('board')).toHaveAttribute('data-fen', fen!);
+});
+
+test('invalid default preference reports an error without discarding the saved game', async ({ page }) => {
+  const game = play(createGame({ ...DEFAULT_SETTINGS, mode: 'local' }), 'e2e4', 0);
+  await page.addInitScript(raw => {
+    localStorage.setItem('little-chess.game', raw);
+    localStorage.setItem('little-chess.default-level', '99');
+  }, serialize(game));
+  await page.goto('/');
+  await expect(page.getByRole('alert')).toContainText('Default level could not be read');
+  await expect(page.locator('[data-square="e4"]')).toHaveAccessibleName(/White Pawn/);
 });

@@ -1,33 +1,25 @@
 export type Sound = 'move' | 'capture' | 'check' | 'end';
-export interface AudioSettings { effects: boolean; music: boolean }
+export interface AudioSettings { effects: boolean }
 export const AUDIO_KEY = 'little-chess.audio';
 
-// Original, quiet pentatonic melody; no downloaded recordings or network assets.
-const MELODY = [60, 64, 67, 69, 67, 64, 62, 64, 60, 62, 64, 67, 64, 62, 60, 55];
 const CUES: Record<Sound, number[]> = {
   move: [72], capture: [67, 76], check: [79, 74, 79], end: [60, 64, 67, 72],
 };
 
 export class GameAudio {
   private context: AudioContext | null = null;
-  private musicBus: GainNode | null = null;
   private effectsBus: GainNode | null = null;
-  private timer: ReturnType<typeof setInterval> | null = null;
-  private note = 0;
-  private nextNote = 0;
-  private settings: AudioSettings = { effects: true, music: true };
+  private settings: AudioSettings = { effects: true };
   private active = true;
 
   constructor(private readonly onError: (error: unknown) => void) {}
 
   unlock() {
-    if (!this.active || (!this.settings.effects && !this.settings.music)) return;
+    if (!this.active || !this.settings.effects) return;
     try {
       if (!this.context) {
         this.context = new AudioContext();
-        this.musicBus = this.context.createGain();
         this.effectsBus = this.context.createGain();
-        this.musicBus.connect(this.context.destination);
         this.effectsBus.connect(this.context.destination);
       }
       this.context.resume().then(() => this.sync()).catch(this.onError);
@@ -58,22 +50,8 @@ export class GameAudio {
   private sync() {
     const ctx = this.context;
     if (!ctx) return;
-    this.musicBus!.gain.value = this.active && this.settings.music ? 1 : 0;
     this.effectsBus!.gain.value = this.active && this.settings.effects ? 1 : 0;
-    const music = this.active && this.settings.music && ctx.state === 'running';
-    if (!music && this.timer !== null) { clearInterval(this.timer); this.timer = null; }
-    if (music && this.timer === null) {
-      this.nextNote = ctx.currentTime + 0.03;
-      const schedule = () => {
-        while (this.nextNote < ctx.currentTime + 0.3) {
-          this.tone(MELODY[this.note++ % MELODY.length], this.nextNote, 1.4, 0.045, this.musicBus!);
-          this.nextNote += 0.75;
-        }
-      };
-      schedule();
-      this.timer = setInterval(schedule, 100);
-    }
-    if ((!this.active || (!this.settings.effects && !this.settings.music)) && ctx.state === 'running') {
+    if ((!this.active || !this.settings.effects) && ctx.state === 'running') {
       ctx.suspend().catch(this.onError);
     }
   }
@@ -84,8 +62,6 @@ export class GameAudio {
   }
 
   dispose() {
-    if (this.timer !== null) clearInterval(this.timer);
-    this.timer = null;
     if (this.context) { void this.context.close().catch(this.onError); this.context = null; }
   }
 }
