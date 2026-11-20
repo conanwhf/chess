@@ -40,3 +40,11 @@
 最终 APK 已复制为 `artifacts/little-chess-0.3.0-debug.apk`，约 7.9 MiB。用 `cmp` 对比 APK 内源码 ZIP 与仓库原件，内容一致；调试签名验证通过。Git diff 空白检查通过，Windows Wrapper 使用标准 CRLF 工作树 / LF 索引。
 
 未验证：实际小米 Pad 的触控与系统行为；Android 7–12 / 14 及更高版本真机；正式签名与应用商店发布；各档准确 Elo。最低系统版本只是构建设置，不应当作全部设备实测通过。
+
+## GitHub 发布前复验 · 2026-11-20
+
+- 用户授权推送源码并将 APK 附在 GitHub Release。发布版本仍为 `0.3.0`，应用行为未改动。
+- `npm test`：53 / 53 通过；`npm run build`：通过；沙盒外 `npm run test:e2e`：14 / 14 通过，12.9 秒。
+- 调试 APK 与上一轮通过模拟器验收的产物逐字节一致，签名重新验证通过。本轮不重复启动模拟器。
+- 将 APK 中全部 24 个应用资源与重新生成的 `dist/` 逐文件比较，内容完全一致。
+- 发布说明使用 [docs/releases/v0.3.0.md](releases/v0.3.0.md)，标记为试用版，不冒充正式签名发布。
