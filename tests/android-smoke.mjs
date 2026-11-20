@@ -58,8 +58,8 @@ try {
     await page.locator('#time').selectOption(time);
     await page.getByRole('button', { name: /Start game/ }).click();
   };
-  const screenshot = async name => {
-    await page.waitForTimeout(250);
+  const screenshot = async (name, settle = 250) => {
+    await page.waitForTimeout(settle);
     await writeFile(`artifacts/android-${name}.png`, adb('exec-out', 'screencap', '-p'));
   };
   await mkdir('artifacts', { recursive: true });
@@ -195,6 +195,39 @@ try {
   await expect.poll(() => page.evaluate(() => window.observedAudio.context.state)).toBe('suspended');
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   console.log('PASS: native effects produce samples without music and background suspends audio');
+
+  await fresh('Two players');
+  await move('f2', 'f3'); await move('e7', 'e5'); await move('g2', 'g4'); await move('d8', 'h4');
+  await expect(page.getByTestId('game-over')).toHaveAttribute('data-winner', 'b');
+  await expect(page.locator('.victory-king img')).toHaveAttribute('src', '/pieces/bk.svg');
+  await expect(page.locator('.victory-crown')).toBeVisible();
+  await screenshot('black-victory', 2000);
+  const endedFen = await board.getAttribute('data-fen');
+  console.log('PASS: native checkmate shows the winning black king and crown');
+  await page.getByRole('button', { name: 'Review game', exact: true }).click();
+  const savedReview = await page.evaluate(() => localStorage.getItem('little-chess.game'));
+  await page.getByRole('button', { name: 'Next move' }).click();
+  await expect(page.getByTestId('review-step')).toContainText('1 / 4');
+  await page.getByRole('button', { name: 'Previous move' }).click();
+  await expect(page.getByTestId('review-step')).toContainText('0 / 4');
+  await page.getByRole('button', { name: 'Auto play', exact: true }).click();
+  await expect(page.getByTestId('review-step')).toContainText('1 / 4');
+  adb('shell', 'input', 'keyevent', 'KEYCODE_HOME');
+  await page.waitForTimeout(500);
+  const stoppedStep = await page.getByTestId('review-step').textContent();
+  await page.waitForTimeout(1500);
+  adb('shell', 'am', 'start', '-n', `${pkg}/.MainActivity`);
+  await expect(page.getByTestId('review-step')).toHaveText(stoppedStep);
+  await expect(page.getByRole('button', { name: 'Auto play', exact: true })).toBeVisible();
+  await expect(board).toBeInViewport({ ratio: 1 });
+  await expect(page.locator('.review-controls')).toBeInViewport({ ratio: 1 });
+  await screenshot('review', 2000);
+  expect(await page.evaluate(() => localStorage.getItem('little-chess.game'))).toBe(savedReview);
+  adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+  await expect(page.getByTestId('review')).toHaveCount(0);
+  await expect(board).toHaveAttribute('data-fen', endedFen);
+  await expect(page.getByTestId('status')).toContainText('Black wins by checkmate');
+  console.log('PASS: native replay steps, stops in background and exits with Back without changing the saved game');
 } finally {
   try { await device.close(); }
   finally { adb('shell', 'am', 'force-stop', 'com.microsoft.playwright.androiddriver'); }

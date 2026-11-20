@@ -146,6 +146,29 @@ select { display: block; width: 100%; min-height: 48px; border: 1px solid #bbcfc
 .legal-content code { overflow-wrap: anywhere; font-size: 10px; }
 .legal-content pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f1f4f1; padding: 12px; max-height: 300px; overflow: auto; font-size: 10px; }
 .spin { animation: spin 1.2s linear infinite; }
+.game-over { padding: 12px 24px 24px; text-align: center; }
+.result-art { height: 214px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.victory-king { position: relative; width: 140px; height: 180px; margin-top: 24px; animation: king-arrive .7s cubic-bezier(.2,.8,.3,1.2) both; }
+.victory-king img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 7px 4px #263d3033); }
+.victory-crown { position: absolute; width: 76px; height: 58px; top: -20px; left: 32px; color: #8b6415; fill: #f3cb55; stroke-width: 1.5; animation: crown-arrive 1s ease-out both; }
+.confetti { position: absolute; inset: 0; pointer-events: none; }
+.confetti i { position: absolute; left: var(--x); top: -18px; width: 7px; height: 13px; background: var(--color); animation: confetti-fall 1.8s var(--delay) ease-in both; }
+.draw-art { gap: 10px; animation: king-arrive .7s ease-out both; }
+.draw-art img { width: 90px; height: 150px; object-fit: contain; }
+.draw-art span { font-size: 30px; color: var(--muted); }
+.game-over h3 { font-size: 28px; margin: 8px 0; }
+.game-over p { font-size: 14px; color: var(--muted); line-height: 1.5; }
+.result-actions { display: grid; gap: 8px; margin-top: 22px; }
+.review-layout { flex: 1; min-height: 0; width: min(100%, 820px); margin: auto; display: grid; grid-template-rows: 48px minmax(0, 1fr) 62px 56px; padding-bottom: 10px; }
+.review-heading { display: flex; align-items: center; justify-content: space-between; }
+.review-progress { margin-left: 18px; display: flex; flex-direction: column; justify-content: center; gap: 7px; }
+.review-progress > span { display: flex; justify-content: space-between; font-size: 14px; font-variant-numeric: tabular-nums; }
+.review-progress input { width: 100%; margin: 0; accent-color: var(--green); min-height: 24px; }
+.review-controls { display: flex; align-items: center; justify-content: space-evenly; margin-left: 18px; border-top: 1px solid var(--border); }
+.review-controls .review-play { background: var(--green); color: white; }
+@keyframes king-arrive { from { transform: translateY(38px) scale(.65); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+@keyframes crown-arrive { from { transform: translateY(-34px) rotate(-18deg); opacity: 0; } 65% { transform: translateY(3px) rotate(5deg); opacity: 1; } to { transform: translateY(0) rotate(0); opacity: 1; } }
+@keyframes confetti-fall { from { transform: translateY(0) rotate(0); opacity: 0; } 15% { opacity: 1; } to { transform: translateY(232px) rotate(var(--rotation)); opacity: 0; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 520px) {
   .app-shell { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }

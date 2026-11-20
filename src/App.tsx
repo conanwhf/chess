@@ -6,6 +6,8 @@ import type { Color, PieceSymbol, Square } from 'chess.js';
 import { Bi } from './components/Bi';
 import { Board, HINT_COLORS } from './components/Board';
 import { Modal } from './components/Modal';
+import { GameOver } from './components/GameOver';
+import { Replay } from './components/Replay';
 import { analyze, chooseMove, type Candidate } from './engine';
 import { LEVELS, THINKER_LEVEL, migrateDifficulty, needsEngine, randomMove } from './difficulty';
 import { changeTime, createGame, DEFAULT_SETTINGS, deserialize, formatTime, pause, play, position, result, resume, serialize, tick, TIME_CONTROLS, undo, type Game, type Settings } from './game';
@@ -60,7 +62,9 @@ export function App() {
   const [boot] = useState(() => load(levelPreference.level));
   const [game, setGame] = useState<Game>(boot.game);
   const [error, setError] = useState(boot.error || levelPreference.error);
-  const [modal, setModal] = useState<'settings' | 'help' | 'legal' | 'audio' | 'menu' | 'history' | 'time' | null>(null);
+  const [modal, setModal] = useState<'settings' | 'help' | 'legal' | 'audio' | 'menu' | 'history' | 'time' | 'result' | null>(null);
+  const [reviewIndex, setReviewIndex] = useState<number | null>(null);
+  const [reviewPlaying, setReviewPlaying] = useState(false);
   const [draft, setDraft] = useState<Settings>(boot.game.settings);
   const [draftTime, setDraftTime] = useState<Settings['time']>(boot.game.settings.time);
   const [orientation, setOrientation] = useState<Color>(boot.game.settings.mode === 'computer' ? boot.game.settings.player : 'w');
@@ -81,9 +85,9 @@ export function App() {
   const fen = chess.fen();
   const ended = result(game, chess);
   const computerTurn = game.settings.mode === 'computer' && chess.turn() !== game.settings.player && !ended;
-  const blocked = game.paused || !!ended || !!computerTurn || !!modal || !!promotion;
+  const blocked = game.paused || !!ended || !!computerTurn || !!modal || !!promotion || reviewIndex !== null;
   const history = useMemo(() => chess.history({ verbose: true }), [chess]);
-  const audio = useAudio(modal === 'audio' || (!game.paused && !modal), setError);
+  const audio = useAudio(modal === 'audio' || (!game.paused && (!modal || modal === 'result')), setError);
   const previousMoves = useRef(game.moves);
   const previousTimeout = useRef(game.timeout);
   useEffect(() => {
@@ -100,6 +104,19 @@ export function App() {
     setHintBusy(false); setHints([]); setFocusedHint(null);
   };
   const pauseNow = () => { clearHints(); setSelected(null); setGame(g => pause(g, performance.now())); };
+  const openReview = () => { pauseNow(); setModal(null); setReviewIndex(0); setReviewPlaying(false); };
+  const closeReview = () => { setReviewPlaying(false); setReviewIndex(null); };
+  const wasEnded = useRef(false);
+  useEffect(() => {
+    if (ended && !wasEnded.current) { clearHints(); setPromotion(null); setModal('result'); setReviewPlaying(false); }
+    wasEnded.current = !!ended;
+  }, [ended?.zh, ended?.winner]);
+  useEffect(() => {
+    if (!reviewPlaying || reviewIndex === null) return;
+    if (reviewIndex >= game.moves.length) { setReviewPlaying(false); return; }
+    const timer = setTimeout(() => setReviewIndex(index => index === null ? null : Math.min(index + 1, game.moves.length)), 1000);
+    return () => clearTimeout(timer);
+  }, [reviewPlaying, reviewIndex, game.moves.length]);
   const save = (g: Game) => {
     if (!canSave.current) return;
     try { localStorage.setItem(STORAGE_KEY, serialize(g)); }
@@ -116,6 +133,7 @@ export function App() {
   useEffect(() => {
     const hide = () => {
       if (document.hidden) {
+        setReviewPlaying(false);
         audio.silence();
         clearHints();
         const paused = pause(currentGame.current, performance.now());
@@ -127,6 +145,7 @@ export function App() {
     const release = afterPageLoad(() => {
       const listener = NativeApp.addListener('appStateChange', ({ isActive }) => {
         if (!isActive) {
+          setReviewPlaying(false);
           audio.silence();
           clearHints();
           const paused = pause(currentGame.current, performance.now());
@@ -148,19 +167,20 @@ export function App() {
       const listener = NativeApp.addListener('backButton', () => {
         if (promotion) setPromotion(null);
         else if (modal) setModal(null);
+        else if (reviewIndex !== null) closeReview();
         else pauseNow();
       });
       listener.catch(e => setError(message(e)));
       return () => { listener.then(handle => handle.remove()).catch(e => setError(message(e))); };
     });
-  }, [modal, promotion]);
+  }, [modal, promotion, reviewIndex !== null]);
 
   useEffect(() => {
     if (moveTable.current) moveTable.current.scrollTop = moveTable.current.scrollHeight;
   }, [game.moves, modal]);
 
   useEffect(() => {
-    if (!computerTurn || game.paused || modal) { setComputerBusy(false); return; }
+    if (!computerTurn || game.paused || modal || reviewIndex !== null) { setComputerBusy(false); return; }
     const controller = new AbortController();
     setComputerBusy(true);
     const work = async () => {
@@ -175,7 +195,7 @@ export function App() {
     work().catch(e => { if (!aborted(e)) { setError(message(e)); setGame(g => pause(g, performance.now())); } })
       .finally(() => { if (!controller.signal.aborted) setComputerBusy(false); });
     return () => controller.abort();
-  }, [fen, computerTurn, game.paused, game.settings.difficulty, modal, retry]);
+  }, [fen, computerTurn, game.paused, game.settings.difficulty, modal, retry, reviewIndex !== null]);
 
   useEffect(() => {
     if (modal !== 'legal' || legalText) return;
@@ -225,6 +245,7 @@ export function App() {
   };
   const openTime = () => { pauseNow(); setDraftTime(game.settings.time); setModal('time'); };
   const start = () => {
+    closeReview();
     clearHints(); setError(''); setSelected(null); setPromotion(null); canSave.current = true;
     const fresh = createGame(draft);
     setGame(fresh); save(fresh); setOrientation(draft.mode === 'computer' ? draft.player : 'w'); setModal(null);
@@ -269,13 +290,13 @@ export function App() {
       <div className="brand"><div className="brand-mark"><img src={pieceUrl('w', 'n')} alt="" /></div><h1><Bi zh="小小棋手" en="Little Chess" /></h1></div>
       <div className="header-actions">
         <button className="language-button" data-testid="language" title={t('Switch to English', '切换为中文')} aria-label={t('Switch to English', '切换为中文')} onClick={() => language.change(language.language === 'zh' ? 'en' : 'zh')}><span className={language.language === 'zh' ? 'current-language' : ''}>中</span><span aria-hidden="true">/</span><span className={language.language === 'en' ? 'current-language' : ''}>En</span></button>
-        <button className="icon-button" data-testid="menu" title={t('设置', 'Settings')} aria-label={t('设置', 'Settings')} onClick={() => { pauseNow(); setModal('menu'); }}><SettingsIcon /></button>
+        <button className="icon-button" data-testid="menu" disabled={reviewIndex !== null} title={t('设置', 'Settings')} aria-label={t('设置', 'Settings')} onClick={() => { pauseNow(); setModal('menu'); }}><SettingsIcon /></button>
       </div>
     </header>
 
     {(error || language.error) && <div className="error-banner" role="alert"><span>{error || `${t('语言设置未保存', 'Language setting unavailable')}: ${language.error}`}</span><button className="icon-button" aria-label={t('关闭错误', 'Dismiss error')} onClick={() => { setError(''); language.clearError(); }}><X size={18} /></button></div>}
 
-    <main className="game-layout">
+    {reviewIndex !== null ? <Replay game={game} orientation={orientation} index={reviewIndex} playing={reviewPlaying} onIndex={setReviewIndex} onPlaying={setReviewPlaying} onClose={closeReview} /> : <main className="game-layout">
       <section className="play-area" aria-label={t('对弈', 'Play')}>
         {playerBar(orientation === 'w' ? 'b' : 'w')}
         <div className="board-slot"><div className="board-stage">
@@ -291,17 +312,20 @@ export function App() {
             {ended ? <Trophy size={20} /> : computerBusy ? <LoaderCircle size={19} className="spin" /> : <span className={`status-disc ${chess.turn()}`} />}
             <Bi zh={status.zh} en={status.en} />
           </>}
-          {ended && <button className="text-button" onClick={openSettings}><Plus size={16} /><Bi zh="再来一局" en="Play again" /></button>}
+          {ended && <button className="text-button" onClick={() => setModal('result')}><Trophy size={16} /><Bi zh="结果" en="Result" /></button>}
         </div>
         {toolbar}
       </section>
 
-    </main>
+    </main>}
+
+    {modal === 'result' && ended && <GameOver outcome={ended} onClose={() => setModal(null)} onReview={openReview} onNewGame={openSettings} />}
 
     {modal === 'menu' && <Modal zh="设置" en="Settings" onClose={() => setModal(null)}><div className="menu-items">
       <div className="default-settings"><label className="field-label" htmlFor="default-difficulty"><Bi zh="默认电脑棋力" en="Default computer level" /><span>{defaultDifficulty + 1} / {LEVELS.length}</span></label><select id="default-difficulty" value={defaultDifficulty} onChange={e => changeDefaultLevel(Number(e.target.value))}>{LEVELS.map((level, i) => <option key={level.en} value={i}>{i + 1} · {t(level.zh, level.en)}</option>)}</select></div>
       <button onClick={openTime} disabled={!!ended}><Clock3 /><Bi zh="计时设置" en="Time control" /></button>
       <button onClick={() => setModal('history')} aria-label={t('棋谱', 'Move history')}><BookOpen /><Bi zh="棋谱" en="Move history" /><span className="move-count" aria-hidden="true">{history.length}</span></button>
+      <button onClick={openReview} disabled={!game.moves.length}><Play /><Bi zh="复盘" en="Review game" /></button>
       <button onClick={() => setModal('help')}><CircleHelp /><Bi zh="棋子帮助" en="Piece guide" /></button>
       <button onClick={() => setModal('audio')}><Volume2 /><Bi zh="声音" en="Sound" /></button>
       <button onClick={() => { setOrientation(o => o === 'w' ? 'b' : 'w'); setModal(null); }}><ArrowLeftRight /><Bi zh="翻转棋盘" en="Flip board" /></button>
@@ -311,6 +335,7 @@ export function App() {
     </div></Modal>}
 
     {modal === 'history' && <Modal zh="棋谱" en="Move history" onClose={() => setModal(null)}><div className="history-content">
+      {!!history.length && <button className="text-button" onClick={openReview}><Play size={18} /><Bi zh="复盘" en="Review game" /></button>}
       {!history.length ? <div className="moves-empty"><Bi zh="尚未走棋" en="No moves yet" /></div> : <div className="move-table" ref={moveTable} data-testid="move-history"><div className="move-table-head"><span>#</span><Bi zh="白方" en="White" /><Bi zh="黑方" en="Black" /></div>{Array.from({ length: Math.ceil(history.length / 2) }, (_, i) => <div className="move-row" key={i}><span>{i + 1}.</span><span>{history[i * 2]?.san}</span><span>{history[i * 2 + 1]?.san ?? '—'}</span></div>)}</div>}
     </div></Modal>}
 
