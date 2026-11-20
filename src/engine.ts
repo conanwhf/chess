@@ -23,13 +23,15 @@ export function legalCandidates(fen: string, candidates: Candidate[]): Candidate
 }
 
 export interface SearchOptions { count?: number; depth?: number; milliseconds?: number; signal: AbortSignal }
+export interface MoveOptions { skill: number; depth: number; milliseconds: number; signal: AbortSignal }
 
-export function analyze(fen: string, options: SearchOptions): Promise<Candidate[]> {
+function search(fen: string, options: SearchOptions & { skill?: number }): Promise<{ move: string; candidates: Candidate[] }> {
   return new Promise((resolve, reject) => {
     if (options.signal.aborted) { reject(new DOMException('Cancelled', 'AbortError')); return; }
     const worker = new Worker('/engine/stockfish-19-lite-single.js');
     let timer: ReturnType<typeof setTimeout>;
     let finished = false;
+    const playing = options.skill !== undefined;
     const lines = new Map<number, Map<number, Candidate>>();
     const cleanup = () => { clearTimeout(timer); options.signal.removeEventListener('abort', abort); worker.terminate(); };
     const fail = (error: Error) => { if (finished) return; finished = true; cleanup(); reject(error); };
@@ -42,28 +44,45 @@ export function analyze(fen: string, options: SearchOptions): Promise<Candidate[
       const line = String(data).trim();
       if (line === 'uciok') {
         worker.postMessage('setoption name Hash value 16');
-        worker.postMessage(`setoption name MultiPV value ${options.count ?? 3}`);
+        worker.postMessage('setoption name UCI_LimitStrength value false');
+        worker.postMessage(`setoption name Skill Level value ${options.skill ?? 20}`);
+        worker.postMessage(`setoption name MultiPV value ${playing ? 1 : options.count ?? 3}`);
         worker.postMessage('isready');
       } else if (line === 'readyok') {
         worker.postMessage(`position fen ${fen}`);
         worker.postMessage(`go depth ${options.depth ?? 16} movetime ${options.milliseconds ?? 1600}`);
-      } else if (line.startsWith('info ')) {
+      } else if (line.startsWith('info ') && !playing) {
         const candidate = parseInfo(line);
         if (candidate) {
           if (!lines.has(candidate.depth)) lines.set(candidate.depth, new Map());
           lines.get(candidate.depth)!.set(candidate.rank, candidate);
         }
       } else if (line.startsWith('bestmove ')) {
-        const expected = Math.min(options.count ?? 3, new Chess(fen).moves().length);
-        const depths = [...lines.keys()].sort((a, b) => b - a);
-        const depth = depths.find(d => legalCandidates(fen, [...lines.get(d)!.values()]).length >= expected);
-        const candidates = depth === undefined ? [] : legalCandidates(fen, [...lines.get(depth)!.values()]).slice(0, expected);
-        if (!candidates.length) { fail(new Error('引擎未返回合法候选，请重试 / No legal analysis. Please retry.')); return; }
+        const move = line.split(/\s+/)[1];
+        let candidates: Candidate[] = [];
+        if (playing) {
+          const legal = new Chess(fen).moves({ verbose: true }).some(m => m.from + m.to + (m.promotion ?? '') === move);
+          if (!legal) { fail(new Error('引擎未返回合法走法，请重试 / No legal engine move. Please retry.')); return; }
+        } else {
+          const expected = Math.min(options.count ?? 3, new Chess(fen).moves().length);
+          const depths = [...lines.keys()].sort((a, b) => b - a);
+          const depth = depths.find(d => legalCandidates(fen, [...lines.get(d)!.values()]).length >= expected);
+          candidates = depth === undefined ? [] : legalCandidates(fen, [...lines.get(depth)!.values()]).slice(0, expected);
+          if (!candidates.length) { fail(new Error('引擎未返回合法候选，请重试 / No legal analysis. Please retry.')); return; }
+        }
         finished = true;
         cleanup();
-        resolve(candidates);
+        resolve({ move, candidates });
       }
     };
     worker.postMessage('uci');
   });
+}
+
+export async function analyze(fen: string, options: SearchOptions): Promise<Candidate[]> {
+  return (await search(fen, options)).candidates;
+}
+
+export async function chooseMove(fen: string, options: MoveOptions): Promise<string> {
+  return (await search(fen, options)).move;
 }

@@ -1,5 +1,9 @@
 # 测试记录
 
+## 原生限强独立实验 · 2026-11-20
+
+执行两轮 `node scripts/verify-engine-strength.mjs`，对当前随包 Stockfish 19 Lite WASM 完成七个局面、五种配置、每组每轮 20 次取样，共 1400 次合法走法选择；每轮另做七次深度 10 的参考分析。原生 Skill 限强及最终 `bestmove` 与分析第一候选的差异得到实测确认。脚本语法检查、最后一轮 JSON 的 700 次合法性与七个完整参考分析的独立复核、`git diff --check` 均通过。应用难度逻辑、提示和 APK 未修改，未做浏览器、Android 或 Elo 标定。方法、频次与限制见 [Stockfish 原生限强验证](engine-strength-validation.md)。
+
 ## 验证层次
 
 1. 单元测试：合法走子、特殊规则、残局、重复局面、计时、悔棋、保存恢复、难度选择、UCI 输出解析。
@@ -115,3 +119,16 @@ Android 验证使用已有 API 33 / WebView 109 平板模拟器，包含冷启�
 - Gradle `:app:assembleDebug` 成功，`versionName=0.4.3`、`versionCode=5`；APK v2 签名验证通过，24 个应用资源与最终 `dist/` 逐字节一致。
 - 本轮只修改落点呈现条件，未重跑 Android 模拟器验收；原生拖动的最近一次验收为 0.4.2 的 11 组测试。小米 Pad 真机仍未复测。
 - `git diff --check` 通过。产物为 `artifacts/little-chess-0.4.3-debug.apk`；用户授权将本次修改及此前的拖动功能一起推送，不创建 Release。
+
+## 0.4.4 原生限强试玩 · 2026-11-20
+
+- 六档改为 Stockfish 原生 Skill Level，最低档 Skill 0 / 深度 1 / 50 ms，其他参数见架构文档；所有档位均使用经过合法性校验的最终 `bestmove`，不混入完全随机走子。
+- `npm test`：78 / 78 通过。新增六档 UCI 参数与最终弱着回归、非法返回不回退、升变、取消、加载故障、无效消息及超时；提示仍返回最深完整 MultiPV，并明确关闭限强。
+- `npm run android:sync`：TypeScript、生产构建和 Capacitor 同步通过。首次构建发现移除随机走子后留下的 `Chess` 未使用导入，已删除；首次浏览器测试读取旧构建，中止且不计作验收。
+- 新构建在沙盒外执行 `npm run test:e2e`：46 / 46 通过，40.4 秒。真实 Worker 覆盖全部六档，核对 Skill / 深度 / 时间配置及最终落子与 `bestmove` 一致；最低档之后的提示仍是 Skill 20、深度 16、1600 ms、三个候选。最低档引擎资源故障时保留棋盘、显示错误并暂停，不随机回复。
+- 默认棋力、旧棋局恢复、悔棋、暂停、六档合法落点显示、点击与拖动、主动提示和六种视口的原有浏览器回归全部通过。
+- Gradle `:app:assembleDebug` 成功；`versionName=0.4.4`、`versionCode=6`，沿用原调试密钥。APK v2 签名验证通过，无 INTERNET 或敏感权限，24 个应用资源与最终 `dist/` 逐字节一致。
+- 模拟器覆盖安装成功；`ANDROID_SERIAL=emulator-5554 npm run test:android`：11 组通过，Android 13 / WebView 109。包含断网真实提示、最低档回复和悔棋、原生后台暂停与返回键、旋转、触摸拖动、局中计时及后台音效挂起。人工查看模拟器截图，棋盘、候选和工具栏完整可见。
+- README、需求、架构、迭代记录与独立实验说明同步更新；`git diff --check` 通过。产物为 `artifacts/little-chess-0.4.4-debug.apk`，不推送、不创建 Release。
+
+本轮不标定 Elo。独立实验表明原生最低档仍可能发现明显将杀，是否适合孩子需真机试玩；小米 Pad 真机触控、音色与其他 Android / WebView 版本仍未在本轮验证。

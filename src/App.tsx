@@ -2,12 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { App as NativeApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { ArrowLeftRight, BookOpen, Check, CircleHelp, Clock3, Globe, Lightbulb, LoaderCircle, Pause, Play, Plus, RotateCcw, Settings as SettingsIcon, ShieldCheck, Trophy, Users, Volume2, X } from 'lucide-react';
-import { Chess, type Color, type PieceSymbol, type Square } from 'chess.js';
+import type { Color, PieceSymbol, Square } from 'chess.js';
 import { Bi } from './components/Bi';
 import { Board, HINT_COLORS } from './components/Board';
 import { Modal } from './components/Modal';
-import { analyze, type Candidate } from './engine';
-import { LEVELS, needsEngine, randomMove } from './difficulty';
+import { analyze, chooseMove, type Candidate } from './engine';
+import { LEVELS } from './difficulty';
 import { changeTime, createGame, DEFAULT_SETTINGS, deserialize, formatTime, pause, play, position, result, resume, serialize, tick, TIME_CONTROLS, undo, type Game, type Settings } from './game';
 import { PIECES, pieceUrl } from './pieces';
 import { version } from '../package.json';
@@ -160,11 +160,7 @@ export function App() {
     const work = async () => {
       await new Promise(resolve => setTimeout(resolve, 500));
       if (controller.signal.aborted) return;
-      let move: string;
-      if (needsEngine(game.settings.difficulty)) {
-        const candidates = await analyze(fen, { count: 1, depth: LEVELS[game.settings.difficulty].depth, milliseconds: 900, signal: controller.signal });
-        move = candidates[0].uci;
-      } else move = randomMove(new Chess(fen));
+      const move = await chooseMove(fen, { ...LEVELS[game.settings.difficulty], signal: controller.signal });
       if (controller.signal.aborted) return;
       setGame(g => !g.paused && position(g).fen() === fen ? play(g, move, performance.now()) : g);
     };

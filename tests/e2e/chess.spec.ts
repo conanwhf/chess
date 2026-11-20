@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import { Chess } from 'chess.js';
 import { createGame, DEFAULT_SETTINGS, serialize } from '../../src/game';
+import { LEVELS } from '../../src/difficulty';
+
+type EngineTrace = { sent: string[]; received: string[] };
 
 const board = (page: Page) => page.getByTestId('board');
 const tool = (page: Page, english: string) => page.locator('.board-toolbar:visible').getByRole('button', { name: new RegExp(english) });
@@ -101,6 +104,62 @@ test('highest level as white makes a real engine move when child plays black', a
   await expect(board(page)).toHaveAttribute('data-fen', / b /);
   expect(new Chess((await board(page).getAttribute('data-fen'))!).turn()).toBe('b');
   await expect(page.locator('.square').first()).toHaveAttribute('data-square', 'h1');
+});
+
+for (const [index, level] of LEVELS.entries()) {
+  test(`native skill ${level.skill} plays the final bestmove at level ${index + 1}`, async ({ page }) => {
+    await page.addInitScript(() => {
+      const traces: EngineTrace[] = [];
+      Object.assign(window, { engineTrace: traces });
+      const Original = window.Worker;
+      window.Worker = class extends Original {
+        trace: EngineTrace = { sent: [], received: [] };
+        constructor(...args: ConstructorParameters<typeof Worker>) {
+          super(...args);
+          traces.push(this.trace);
+          this.addEventListener('message', event => this.trace.received.push(String(event.data)));
+        }
+        postMessage(message: unknown) { this.trace.sent.push(String(message)); super.postMessage(message); }
+      };
+    });
+    await page.reload();
+    await page.getByTestId('new-game').click();
+    await page.locator('#difficulty').selectOption(String(index));
+    await page.getByRole('button', { name: /Black · second/ }).click();
+    await page.getByRole('button', { name: /Start game/ }).click();
+    await expect(board(page)).toHaveAttribute('data-fen', / b /);
+    const traces = await page.evaluate(() => (window as typeof window & { engineTrace: EngineTrace[] }).engineTrace);
+    expect(traces).toHaveLength(1);
+    expect(traces[0].sent).toEqual(expect.arrayContaining([
+      'setoption name UCI_LimitStrength value false',
+      `setoption name Skill Level value ${level.skill}`,
+      'setoption name MultiPV value 1',
+      `go depth ${level.depth} movetime ${level.milliseconds}`,
+    ]));
+    const chosen = traces[0].received.find(line => line.startsWith('bestmove '))!.split(/\s+/)[1];
+    const expected = new Chess();
+    expected.move(chosen);
+    await expect(board(page)).toHaveAttribute('data-fen', expected.fen());
+    if (index === 0) {
+      await tool(page, 'Hint').click();
+      await expect(page.getByTestId('candidate')).toHaveCount(3);
+      const hint = await page.evaluate(() => (window as typeof window & { engineTrace: EngineTrace[] }).engineTrace.at(-1)!);
+      expect(hint.sent).toEqual(expect.arrayContaining([
+        'setoption name Skill Level value 20', 'setoption name MultiPV value 3', 'go depth 16 movetime 1600',
+      ]));
+      await expect(board(page)).toHaveAttribute('data-fen', expected.fen());
+    }
+  });
+}
+
+test('lowest level reports engine failure without making a random reply', async ({ page }) => {
+  await page.route('**/engine/*.js', route => route.abort());
+  await move(page, 'e2', 'e4');
+  const expected = new Chess();
+  expected.move('e4');
+  await expect(page.getByRole('alert')).toContainText('Engine failed');
+  await expect(board(page)).toHaveAttribute('data-fen', expected.fen());
+  await expect(page.locator('.pause-overlay').getByRole('button', { name: 'Resume' })).toBeVisible();
 });
 
 test('guide, piece-name toggle, bundled license text', async ({ page }) => {
