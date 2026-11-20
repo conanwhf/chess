@@ -31,9 +31,13 @@ function afterPageLoad(start: () => () => void) {
 function loadDefaultLevel() {
   try {
     const raw = localStorage.getItem(DEFAULT_LEVEL_KEY);
-    const saved: unknown = raw === null ? { version: 2, difficulty: 0 } : JSON.parse(raw);
-    const level: unknown = typeof saved === 'number' ? migrateDifficulty(saved)
-      : saved && typeof saved === 'object' && 'version' in saved && saved.version === 2 && 'difficulty' in saved ? saved.difficulty : undefined;
+    const saved: unknown = raw === null ? { version: 3, difficulty: 0 } : JSON.parse(raw);
+    let level: unknown;
+    if (typeof saved === 'number') level = migrateDifficulty(saved);
+    else if (saved && typeof saved === 'object' && 'version' in saved && 'difficulty' in saved) {
+      if (saved.version === 3) level = saved.difficulty;
+      else if (saved.version === 2 && typeof saved.difficulty === 'number') level = migrateDifficulty(saved.difficulty, 2);
+    }
     if (typeof level !== 'number' || !Number.isInteger(level) || level < 0 || level >= LEVELS.length) throw new Error('默认棋力无效 / Invalid default level');
     return { level, error: '' };
   } catch (error) { return { level: 0, error: `默认棋力未能读取 / Default level could not be read: ${message(error)}` }; }
@@ -216,7 +220,7 @@ export function App() {
   const openSettings = () => { pauseNow(); setDraft({ ...game.settings, difficulty: defaultDifficulty }); setModal('settings'); };
   const changeDefaultLevel = (level: number) => {
     setDefaultDifficulty(level);
-    try { localStorage.setItem(DEFAULT_LEVEL_KEY, JSON.stringify({ version: 2, difficulty: level })); }
+    try { localStorage.setItem(DEFAULT_LEVEL_KEY, JSON.stringify({ version: 3, difficulty: level })); }
     catch (error) { setError(`默认棋力未保存 / Default level not saved: ${message(error)}`); }
   };
   const openTime = () => { pauseNow(); setDraftTime(game.settings.time); setModal('time'); };

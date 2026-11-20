@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { Chess } from 'chess.js';
 import { analyze, chooseMove, legalCandidates, parseInfo, type Candidate } from '../../src/engine';
-import { LEVELS, migrateDifficulty, needsEngine, randomMove } from '../../src/difficulty';
+import { LEVELS, THINKER_LEVEL, migrateDifficulty, needsEngine, randomMove } from '../../src/difficulty';
 
 describe('UCI parser', () => {
   it('reads centipawns, MultiPV, and promotion', () => {
@@ -23,6 +23,7 @@ describe('UCI parser', () => {
 describe('difficulty', () => {
   it('combines twelve classic and native profiles without fake Elo', () => {
     expect(LEVELS).toHaveLength(12);
+    expect(THINKER_LEVEL).toBe(1);
     expect(LEVELS[0]).toMatchObject({ id: 'classic-3', engineChance: .35, depth: 3 });
     expect(LEVELS.at(-1)?.skill).toBe(20);
     for (const level of LEVELS) {
@@ -51,6 +52,11 @@ describe('difficulty', () => {
   it.each(['native-0', 'native-3', 'native-7', 'native-11', 'native-16', 'expert'])('migrates previous profile %s by identity', id => {
     const previous = ['native-0', 'native-3', 'native-7', 'native-11', 'native-16', 'expert'].indexOf(id);
     expect(LEVELS[migrateDifficulty(previous)].id).toBe(id);
+  });
+  it('maps the previous twelve-level ordering and lowers the removed bridge safely', () => {
+    const ids = ['classic-3', 'classic-3', 'classic-4', 'bridge-72', 'native-0', 'classic-5', 'native-3', 'native-7', 'bridge-93', 'native-11', 'native-16', 'expert'];
+    expect(ids.map((_, index) => LEVELS[migrateDifficulty(index, 2)].id)).toEqual(ids);
+    expect(LEVELS.find(level => level.id === 'bridge-80')).toMatchObject({ engineChance: .8, depth: 7, skill: 20, milliseconds: 900 });
   });
 });
 

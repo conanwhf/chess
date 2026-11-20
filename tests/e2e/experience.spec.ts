@@ -164,14 +164,14 @@ test('gear changes only the default level; new-game overrides never change the d
   await page.getByTestId('menu').click();
   await page.locator('#default-difficulty').selectOption('5');
   await page.getByRole('button', { name: 'Close', exact: true }).click();
-  await expect(page.getByTestId('player-b')).toContainText('Learner (classic)');
+  await expect(page.getByTestId('player-b')).toContainText(LEVELS[0].en);
   await expect(page.getByTestId('board')).toHaveAttribute('data-fen', fen!);
   await page.reload();
-  await expect(page.getByTestId('player-b')).toContainText('Learner (classic)');
+  await expect(page.getByTestId('player-b')).toContainText(LEVELS[0].en);
   await expect(page.getByTestId('board')).toHaveAttribute('data-fen', fen!);
   await page.getByTestId('new-game').click();
   await expect(page.locator('#difficulty')).toHaveValue('5');
-  await page.locator('#difficulty').selectOption('2');
+  await page.locator('#difficulty').selectOption('1');
   await page.getByRole('button', { name: 'Start game' }).click();
   await expect(page.getByTestId('player-b')).toContainText('Thinker (classic)');
   await page.getByTestId('menu').click();
@@ -196,21 +196,58 @@ test('six-level saves and numeric defaults migrate by profile without losing the
   const currentIndex = LEVELS.findIndex(level => level.id === 'native-0');
   await page.goto('/');
   const fen = await page.getByTestId('board').getAttribute('data-fen');
-  await expect(page.getByTestId('player-b')).toContainText('Engine starter');
+  await expect(page.getByTestId('player-b')).toContainText('Lightning Knight');
   await page.getByTestId('menu').click();
   await expect(page.locator('#default-difficulty')).toHaveValue(String(defaultIndex));
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.reload();
   await expect(page.getByTestId('board')).toHaveAttribute('data-fen', fen!);
-  await expect(page.getByTestId('player-b')).toContainText('Engine starter');
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('little-chess.game')!))).toMatchObject({ version: 2, game: { settings: { difficulty: currentIndex }, moves: ['e2e4', 'e7e5'] } });
+  await expect(page.getByTestId('player-b')).toContainText('Lightning Knight');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('little-chess.game')!))).toMatchObject({ version: 3, game: { settings: { difficulty: currentIndex }, moves: ['e2e4', 'e7e5'] } });
   await page.getByTestId('new-game').click();
   await expect(page.locator('#difficulty')).toHaveValue(String(defaultIndex));
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByTestId('menu').click();
   await page.locator('#default-difficulty').selectOption('0');
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('little-chess.default-level')!))).toEqual({ version: 2, difficulty: 0 });
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('little-chess.default-level')!))).toEqual({ version: 3, difficulty: 0 });
   await expect(page.getByTestId('board')).toHaveAttribute('data-fen', fen!);
+});
+
+test('previous twelve-level Thinker game and default remain Thinker at the second level', async ({ page }) => {
+  const game = play(play(createGame(), 'e2e4', 0), 'e7e5', 1000);
+  const raw = JSON.stringify({ version: 2, game: { ...game, settings: { ...game.settings, difficulty: 2 } } });
+  await page.addInitScript(save => {
+    if (!sessionStorage.getItem('imported-twelve-levels')) {
+      localStorage.setItem('little-chess.game', save);
+      localStorage.setItem('little-chess.default-level', JSON.stringify({ version: 2, difficulty: 2 }));
+      sessionStorage.setItem('imported-twelve-levels', 'yes');
+    }
+  }, raw);
+  await page.goto('/');
+  await expect(page.getByTestId('player-b')).toContainText('2 · Thinker (classic)');
+  const fen = await page.getByTestId('board').getAttribute('data-fen');
+  await page.getByTestId('menu').click();
+  await expect(page.locator('#default-difficulty')).toHaveValue('1');
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.reload();
+  await expect(page.getByTestId('player-b')).toContainText('2 · Thinker (classic)');
+  await expect(page.getByTestId('board')).toHaveAttribute('data-fen', fen!);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('little-chess.game')!))).toMatchObject({ version: 3, game: { settings: { difficulty: 1 } } });
+});
+
+test('rank titles are localized and fit a narrow settings panel', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 640 });
+  await page.goto('/');
+  await page.getByTestId('new-game').click();
+  await expect(page.locator('#difficulty option')).toHaveText(LEVELS.map((level, index) => `${index + 1} · ${level.en}`));
+  await page.locator('#difficulty').selectOption('11');
+  await page.screenshot({ path: 'artifacts/english-rank-titles.png' });
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByTestId('language').click();
+  await page.getByTestId('new-game').click();
+  await expect(page.locator('#difficulty option')).toHaveText(LEVELS.map((level, index) => `${index + 1} · ${level.zh}`));
+  await page.locator('#difficulty').selectOption('11');
+  await page.screenshot({ path: 'artifacts/chinese-rank-titles.png' });
 });
 
 test('clock and settings switch timed/untimed in place; cancelling never resets time', async ({ page }) => {

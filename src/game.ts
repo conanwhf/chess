@@ -133,7 +133,7 @@ export function undo(game: Game, now: number): Game {
 }
 
 export function serialize(game: Game): string {
-  return JSON.stringify({ version: 2, game: { ...game, paused: game.started || game.paused, clockAt: null } });
+  return JSON.stringify({ version: 3, game: { ...game, paused: game.started || game.paused, clockAt: null } });
 }
 
 function isClocks(value: unknown): value is Record<Color, number> {
@@ -147,7 +147,7 @@ export function deserialize(raw: string): Game {
   const data = JSON.parse(raw);
   const g = data?.game;
   const s = g?.settings;
-  if (![1, 2].includes(data?.version) || !s || !['computer', 'local'].includes(s.mode) || !['w', 'b'].includes(s.player)
+  if (![1, 2, 3].includes(data?.version) || !s || !['computer', 'local'].includes(s.mode) || !['w', 'b'].includes(s.player)
     || !Number.isInteger(s.difficulty) || s.difficulty < 0 || s.difficulty >= (data.version === 1 ? 6 : LEVELS.length)
     || !TIME_CONTROLS.some(t => t.id === s.time) || typeof s.names !== 'boolean'
     || typeof g.initialFen !== 'string' || !Array.isArray(g.moves) || g.moves.length > 10000
@@ -158,7 +158,7 @@ export function deserialize(raw: string): Game {
     throw new Error('棋局存档格式无效 / Invalid saved game');
   }
   position(g);
-  return { ...g, settings: { ...s, difficulty: data.version === 1 ? migrateDifficulty(s.difficulty) : s.difficulty }, paused: g.started || g.paused, clockAt: null };
+  return { ...g, settings: { ...s, difficulty: data.version === 3 ? s.difficulty : migrateDifficulty(s.difficulty, data.version) }, paused: g.started || g.paused, clockAt: null };
 }
 
 export function formatTime(ms: number): string {

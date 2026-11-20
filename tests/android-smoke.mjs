@@ -75,7 +75,7 @@ try {
   adb('shell', 'svc', 'wifi', 'disable');
   adb('shell', 'svc', 'data', 'disable');
   await fresh('Vs computer', 'none', 0);
-  await expect(page.getByTestId('player-b')).toContainText('Learner (classic)');
+  await expect(page.getByTestId('player-b')).toContainText('Brave Vanguard');
   const before = await board.getAttribute('data-fen');
   await tool('Hint').click();
   await expect(page.getByTestId('candidate')).toHaveCount(3, { timeout: 20000 });
@@ -91,12 +91,13 @@ try {
 
   await page.getByTestId('new-game').click();
   await expect(page.locator('#difficulty option')).toHaveCount(12);
-  await page.locator('#difficulty').selectOption('2');
+  await page.locator('#difficulty').selectOption('1');
   await page.getByRole('button', { name: /Start game/ }).click();
   await expect(page.getByTestId('player-b')).toContainText('Thinker (classic)');
   await page.locator('[data-square="e2"]').click();
   await expect(page.locator('.legal-target')).toHaveCount(0);
-  console.log('PASS: twelve levels include classic Thinker with its original legal-marker boundary');
+  await expect(page.getByTestId('player-b')).toContainText('2 · Thinker (classic)');
+  console.log('PASS: twelve titles include classic Thinker at level two with its legal-marker boundary');
 
   await fresh('Two players', '5');
   await move('e2', 'e4');

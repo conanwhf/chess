@@ -122,7 +122,7 @@ describe('save boundary', () => {
   it('round-trips every new level with the new save version', () => {
     for (const [difficulty] of LEVELS.entries()) {
       const game = createGame({ ...DEFAULT_SETTINGS, difficulty });
-      expect(JSON.parse(serialize(game)).version).toBe(2);
+      expect(JSON.parse(serialize(game)).version).toBe(3);
       expect(deserialize(serialize(game)).settings.difficulty).toBe(difficulty);
     }
   });
@@ -135,6 +135,18 @@ describe('save boundary', () => {
       const game = sequence(['e2e4', 'e7e5']);
       game.settings.difficulty = difficulty;
       const restored = deserialize(JSON.stringify({ version: 1, game }));
+      expect(LEVELS[restored.settings.difficulty].id).toBe(id);
+      expect(restored.moves).toEqual(game.moves);
+      expect(restored.clocks).toEqual(game.clocks);
+      expect(restored.snapshots).toEqual(game.snapshots);
+    }
+  });
+  it('migrates the previous twelve-level saves without renumbering their strategies', () => {
+    const ids = ['classic-3', 'classic-3', 'classic-4', 'bridge-72', 'native-0', 'classic-5', 'native-3', 'native-7', 'bridge-93', 'native-11', 'native-16', 'expert'];
+    for (const [difficulty, id] of ids.entries()) {
+      const game = sequence(['e2e4', 'e7e5']);
+      game.settings.difficulty = difficulty;
+      const restored = deserialize(JSON.stringify({ version: 2, game }));
       expect(LEVELS[restored.settings.difficulty].id).toBe(id);
       expect(restored.moves).toEqual(game.moves);
       expect(restored.clocks).toEqual(game.clocks);
