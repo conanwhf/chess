@@ -7,7 +7,7 @@ import { Bi } from './components/Bi';
 import { Board, HINT_COLORS } from './components/Board';
 import { Modal } from './components/Modal';
 import { analyze, chooseMove, type Candidate } from './engine';
-import { LEVELS } from './difficulty';
+import { LEVELS, THINKER_LEVEL, migrateDifficulty, needsEngine, randomMove } from './difficulty';
 import { changeTime, createGame, DEFAULT_SETTINGS, deserialize, formatTime, pause, play, position, result, resume, serialize, tick, TIME_CONTROLS, undo, type Game, type Settings } from './game';
 import { PIECES, pieceUrl } from './pieces';
 import { version } from '../package.json';
@@ -31,7 +31,9 @@ function afterPageLoad(start: () => () => void) {
 function loadDefaultLevel() {
   try {
     const raw = localStorage.getItem(DEFAULT_LEVEL_KEY);
-    const level: unknown = raw === null ? 0 : JSON.parse(raw);
+    const saved: unknown = raw === null ? { version: 2, difficulty: 0 } : JSON.parse(raw);
+    const level: unknown = typeof saved === 'number' ? migrateDifficulty(saved)
+      : saved && typeof saved === 'object' && 'version' in saved && saved.version === 2 && 'difficulty' in saved ? saved.difficulty : undefined;
     if (typeof level !== 'number' || !Number.isInteger(level) || level < 0 || level >= LEVELS.length) throw new Error('默认棋力无效 / Invalid default level');
     return { level, error: '' };
   } catch (error) { return { level: 0, error: `默认棋力未能读取 / Default level could not be read: ${message(error)}` }; }
@@ -160,7 +162,9 @@ export function App() {
     const work = async () => {
       await new Promise(resolve => setTimeout(resolve, 500));
       if (controller.signal.aborted) return;
-      const move = await chooseMove(fen, { ...LEVELS[game.settings.difficulty], signal: controller.signal });
+      const move = needsEngine(game.settings.difficulty)
+        ? await chooseMove(fen, { ...LEVELS[game.settings.difficulty], signal: controller.signal })
+        : randomMove(chess);
       if (controller.signal.aborted) return;
       setGame(g => !g.paused && position(g).fen() === fen ? play(g, move, performance.now()) : g);
     };
@@ -212,7 +216,7 @@ export function App() {
   const openSettings = () => { pauseNow(); setDraft({ ...game.settings, difficulty: defaultDifficulty }); setModal('settings'); };
   const changeDefaultLevel = (level: number) => {
     setDefaultDifficulty(level);
-    try { localStorage.setItem(DEFAULT_LEVEL_KEY, JSON.stringify(level)); }
+    try { localStorage.setItem(DEFAULT_LEVEL_KEY, JSON.stringify({ version: 2, difficulty: level })); }
     catch (error) { setError(`默认棋力未保存 / Default level not saved: ${message(error)}`); }
   };
   const openTime = () => { pauseNow(); setDraftTime(game.settings.time); setModal('time'); };
@@ -271,7 +275,7 @@ export function App() {
       <section className="play-area" aria-label={t('对弈', 'Play')}>
         {playerBar(orientation === 'w' ? 'b' : 'w')}
         <div className="board-slot"><div className="board-stage">
-          <Board chess={chess} orientation={orientation} selected={selected} onSquare={onSquare} onMove={tryMove} hints={hints} focusedHint={focusedHint} showNames={game.settings.names} showLegalTargets={game.settings.mode === 'local' || game.settings.difficulty < 3} disabled={blocked} />
+          <Board chess={chess} orientation={orientation} selected={selected} onSquare={onSquare} onMove={tryMove} hints={hints} focusedHint={focusedHint} showNames={game.settings.names} showLegalTargets={game.settings.mode === 'local' || game.settings.difficulty < THINKER_LEVEL} disabled={blocked} />
           {game.paused && !modal && !ended && <div className="pause-overlay"><Pause size={30} /><Bi zh="休息一下" en="Game paused" /><button className="primary-button" onClick={() => { setError(''); setRetry(n => n + 1); setGame(g => resume(g, performance.now())); }}><Play size={20} /><Bi zh="继续下棋" en="Resume" /></button></div>}
         </div></div>
         {playerBar(orientation)}
@@ -291,7 +295,7 @@ export function App() {
     </main>
 
     {modal === 'menu' && <Modal zh="设置" en="Settings" onClose={() => setModal(null)}><div className="menu-items">
-      <div className="default-settings"><label className="field-label" htmlFor="default-difficulty"><Bi zh="默认电脑棋力" en="Default computer level" /><span>{defaultDifficulty + 1} / 6</span></label><select id="default-difficulty" value={defaultDifficulty} onChange={e => changeDefaultLevel(Number(e.target.value))}>{LEVELS.map((level, i) => <option key={level.en} value={i}>{i + 1} · {t(level.zh, level.en)}</option>)}</select></div>
+      <div className="default-settings"><label className="field-label" htmlFor="default-difficulty"><Bi zh="默认电脑棋力" en="Default computer level" /><span>{defaultDifficulty + 1} / {LEVELS.length}</span></label><select id="default-difficulty" value={defaultDifficulty} onChange={e => changeDefaultLevel(Number(e.target.value))}>{LEVELS.map((level, i) => <option key={level.en} value={i}>{i + 1} · {t(level.zh, level.en)}</option>)}</select></div>
       <button onClick={openTime} disabled={!!ended}><Clock3 /><Bi zh="计时设置" en="Time control" /></button>
       <button onClick={() => setModal('history')} aria-label={t('棋谱', 'Move history')}><BookOpen /><Bi zh="棋谱" en="Move history" /><span className="move-count" aria-hidden="true">{history.length}</span></button>
       <button onClick={() => setModal('help')}><CircleHelp /><Bi zh="棋子帮助" en="Piece guide" /></button>
@@ -321,7 +325,7 @@ export function App() {
     {modal === 'settings' && <Modal zh="开始一局" en="Set up a game" onClose={() => setModal(null)}>
       <div className="settings-form">
         <fieldset><legend><Bi zh="对战模式" en="Play mode" /></legend><div className="segmented">{(['computer', 'local'] as const).map(mode => <button key={mode} className={draft.mode === mode ? 'chosen' : ''} aria-pressed={draft.mode === mode} onClick={() => setDraft(d => ({ ...d, mode }))}><Users size={17} /><Bi zh={mode === 'computer' ? '人机对战' : '双人对战'} en={mode === 'computer' ? 'Vs computer' : 'Two players'} /></button>)}</div></fieldset>
-        {draft.mode === 'computer' && <><label className="field-label" htmlFor="difficulty"><Bi zh="电脑棋力" en="Computer level" /><span>{draft.difficulty + 1} / 6</span></label><select id="difficulty" value={draft.difficulty} onChange={e => setDraft(d => ({ ...d, difficulty: Number(e.target.value) }))}>{LEVELS.map((level, i) => <option key={level.en} value={i}>{i + 1} · {t(level.zh, level.en)}</option>)}</select>
+        {draft.mode === 'computer' && <><label className="field-label" htmlFor="difficulty"><Bi zh="电脑棋力" en="Computer level" /><span>{draft.difficulty + 1} / {LEVELS.length}</span></label><select id="difficulty" value={draft.difficulty} onChange={e => setDraft(d => ({ ...d, difficulty: Number(e.target.value) }))}>{LEVELS.map((level, i) => <option key={level.en} value={i}>{i + 1} · {t(level.zh, level.en)}</option>)}</select>
           <fieldset><legend><Bi zh="我的棋子" en="Play as" /></legend><div className="segmented">{(['w', 'b'] as const).map(color => <button key={color} className={draft.player === color ? 'chosen' : ''} aria-pressed={draft.player === color} onClick={() => setDraft(d => ({ ...d, player: color }))}><img src={pieceUrl(color, 'k')} alt="" /><Bi zh={color === 'w' ? '白方先走' : '黑方后走'} en={color === 'w' ? 'White · first' : 'Black · second'} /></button>)}</div></fieldset></>}
         <label className="field-label" htmlFor="time"><Bi zh="每方用时" en="Time per side" /></label><select id="time" value={draft.time} onChange={e => setDraft(d => ({ ...d, time: e.target.value as Settings['time'] }))}>{TIME_CONTROLS.map(control => <option key={control.id} value={control.id}>{t(control.zh, control.en)}</option>)}</select>
         {game.moves.length > 0 && <p className="replace-note"><Bi zh="开始后将替换当前棋局。" en="Starting replaces your current game." /></p>}

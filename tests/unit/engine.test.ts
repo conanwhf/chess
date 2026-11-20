@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { Chess } from 'chess.js';
 import { analyze, chooseMove, legalCandidates, parseInfo, type Candidate } from '../../src/engine';
-import { LEVELS } from '../../src/difficulty';
+import { LEVELS, migrateDifficulty, needsEngine, randomMove } from '../../src/difficulty';
 
 describe('UCI parser', () => {
   it('reads centipawns, MultiPV, and promotion', () => {
@@ -21,16 +21,36 @@ describe('UCI parser', () => {
 });
 
 describe('difficulty', () => {
-  it('has six increasing native skill and search budgets, not fake Elo', () => {
-    expect(LEVELS).toHaveLength(6);
-    expect(LEVELS[0]).toMatchObject({ skill: 0, depth: 1, milliseconds: 50 });
+  it('combines twelve classic and native profiles without fake Elo', () => {
+    expect(LEVELS).toHaveLength(12);
+    expect(LEVELS[0]).toMatchObject({ id: 'classic-3', engineChance: .35, depth: 3 });
     expect(LEVELS.at(-1)?.skill).toBe(20);
-    for (const [index, level] of LEVELS.entries()) {
+    for (const level of LEVELS) {
       expect(Number.isInteger(level.skill)).toBe(true);
       expect(level.skill).toBeGreaterThanOrEqual(0);
       expect(level.skill).toBeLessThanOrEqual(20);
-      if (index) for (const key of ['skill', 'depth', 'milliseconds'] as const) expect(level[key]).toBeGreaterThan(LEVELS[index - 1][key]);
+      expect(level.engineChance).toBeGreaterThan(0);
+      expect(level.engineChance).toBeLessThanOrEqual(1);
     }
+  });
+  it.each([
+    ['classic-3', .35, 3], ['classic-4', .6, 5], ['classic-5', .85, 8], ['expert', 1, 12],
+  ])('preserves original profile %s', (id, engineChance, depth) => {
+    expect(LEVELS.find(level => level.id === id)).toMatchObject({ engineChance, skill: 20, depth, milliseconds: 900 });
+  });
+  it('restores the classic probability boundary and legal random moves', () => {
+    const thinker = LEVELS.findIndex(level => level.id === 'classic-4');
+    expect(needsEngine(thinker, () => .599)).toBe(true);
+    expect(needsEngine(thinker, () => .6)).toBe(false);
+    for (const level of LEVELS.filter(level => level.engineChance === 1)) {
+      expect(needsEngine(LEVELS.indexOf(level), () => .9999)).toBe(true);
+    }
+    for (const random of [0, .2, .99]) expect(() => new Chess().move(randomMove(new Chess(), () => random))).not.toThrow();
+    expect(() => randomMove(new Chess('7k/5K2/6Q1/8/8/8/8/8 b - - 0 1'))).toThrow('No legal moves');
+  });
+  it.each(['native-0', 'native-3', 'native-7', 'native-11', 'native-16', 'expert'])('migrates previous profile %s by identity', id => {
+    const previous = ['native-0', 'native-3', 'native-7', 'native-11', 'native-16', 'expert'].indexOf(id);
+    expect(LEVELS[migrateDifficulty(previous)].id).toBe(id);
   });
 });
 

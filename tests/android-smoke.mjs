@@ -51,9 +51,10 @@ try {
     await page.locator(`[data-square="${from}"]`).click();
     await page.locator(`[data-square="${to}"]`).click();
   };
-  const fresh = async (mode, time = 'none') => {
+  const fresh = async (mode, time = 'none', difficulty) => {
     await page.getByTestId('new-game').click();
     await page.getByRole('button', { name: new RegExp(mode) }).click();
+    if (difficulty !== undefined) await page.locator('#difficulty').selectOption(String(difficulty));
     await page.locator('#time').selectOption(time);
     await page.getByRole('button', { name: /Start game/ }).click();
   };
@@ -73,7 +74,8 @@ try {
   // This is an isolated emulator. Turn off its network before loading the engine.
   adb('shell', 'svc', 'wifi', 'disable');
   adb('shell', 'svc', 'data', 'disable');
-  await fresh('Vs computer');
+  await fresh('Vs computer', 'none', 0);
+  await expect(page.getByTestId('player-b')).toContainText('Learner (classic)');
   const before = await board.getAttribute('data-fen');
   await tool('Hint').click();
   await expect(page.getByTestId('candidate')).toHaveCount(3, { timeout: 20000 });
@@ -86,6 +88,15 @@ try {
   await tool('Undo').click();
   await expect(board).toHaveAttribute('data-fen', before);
   console.log('PASS: beginner AI reply and undo');
+
+  await page.getByTestId('new-game').click();
+  await expect(page.locator('#difficulty option')).toHaveCount(12);
+  await page.locator('#difficulty').selectOption('2');
+  await page.getByRole('button', { name: /Start game/ }).click();
+  await expect(page.getByTestId('player-b')).toContainText('Thinker (classic)');
+  await page.locator('[data-square="e2"]').click();
+  await expect(page.locator('.legal-target')).toHaveCount(0);
+  console.log('PASS: twelve levels include classic Thinker with its original legal-marker boundary');
 
   await fresh('Two players', '5');
   await move('e2', 'e4');

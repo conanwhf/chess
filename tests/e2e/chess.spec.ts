@@ -27,7 +27,7 @@ test('offline assets, bilingual names and tablet layout', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /Little Chess/ })).toBeVisible();
   await expect(square(page, 'e1')).toHaveAccessibleName(/King/);
   await expect(square(page, 'd1')).toHaveAccessibleName(/Queen/);
-  await expect(page.getByTestId('player-b')).toContainText('First steps');
+  await expect(page.getByTestId('player-b')).toContainText(LEVELS[0].en);
   expect(await page.locator('img').evaluateAll(imgs => imgs.every(img => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0))).toBe(true);
   const dimensions = await page.evaluate(() => ({ width: innerWidth, scroll: document.documentElement.scrollWidth }));
   expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.width);
@@ -90,7 +90,7 @@ test('settings cancel does not replace a game and all levels are selectable', as
   const fen = await board(page).getAttribute('data-fen');
   await page.getByTestId('new-game').click();
   await page.getByRole('button', { name: /Vs computer/ }).click();
-  await expect(page.locator('#difficulty option')).toHaveCount(6);
+  await expect(page.locator('#difficulty option')).toHaveCount(LEVELS.length);
   await page.locator('#difficulty').selectOption('5');
   await page.getByRole('button', { name: 'Close' }).click();
   await expect(board(page)).toHaveAttribute('data-fen', fen!);
@@ -98,7 +98,7 @@ test('settings cancel does not replace a game and all levels are selectable', as
 
 test('highest level as white makes a real engine move when child plays black', async ({ page }) => {
   await page.getByTestId('new-game').click();
-  await page.locator('#difficulty').selectOption('5');
+  await page.locator('#difficulty').selectOption(String(LEVELS.length - 1));
   await page.getByRole('button', { name: /Black · second/ }).click();
   await page.getByRole('button', { name: /Start game/ }).click();
   await expect(board(page)).toHaveAttribute('data-fen', / b /);
@@ -109,6 +109,7 @@ test('highest level as white makes a real engine move when child plays black', a
 for (const [index, level] of LEVELS.entries()) {
   test(`native skill ${level.skill} plays the final bestmove at level ${index + 1}`, async ({ page }) => {
     await page.addInitScript(() => {
+      Math.random = () => 0;
       const traces: EngineTrace[] = [];
       Object.assign(window, { engineTrace: traces });
       const Original = window.Worker;
@@ -153,6 +154,7 @@ for (const [index, level] of LEVELS.entries()) {
 }
 
 test('lowest level reports engine failure without making a random reply', async ({ page }) => {
+  await page.evaluate(() => { Math.random = () => 0; });
   await page.route('**/engine/*.js', route => route.abort());
   await move(page, 'e2', 'e4');
   const expected = new Chess();
@@ -160,6 +162,22 @@ test('lowest level reports engine failure without making a random reply', async 
   await expect(page.getByRole('alert')).toContainText('Engine failed');
   await expect(board(page)).toHaveAttribute('data-fen', expected.fen());
   await expect(page.locator('.pause-overlay').getByRole('button', { name: 'Resume' })).toBeVisible();
+});
+
+test('classic Thinker retains its legal random branch without loading an engine', async ({ page }) => {
+  const workers: string[] = [];
+  page.on('worker', worker => workers.push(worker.url()));
+  await page.evaluate(() => { Math.random = () => .99; });
+  await page.getByTestId('new-game').click();
+  await page.locator('#difficulty').selectOption(String(LEVELS.findIndex(level => level.id === 'classic-4')));
+  await page.getByRole('button', { name: /Black · second/ }).click();
+  await page.getByRole('button', { name: /Start game/ }).click();
+  await expect(board(page)).toHaveAttribute('data-fen', / b /);
+  const expected = new Chess();
+  const moves = expected.moves();
+  expected.move(moves[Math.floor(.99 * moves.length)]);
+  await expect(board(page)).toHaveAttribute('data-fen', expected.fen());
+  expect(workers).toEqual([]);
 });
 
 test('guide, piece-name toggle, bundled license text', async ({ page }) => {

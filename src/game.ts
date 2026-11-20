@@ -1,4 +1,5 @@
 import { Chess, DEFAULT_POSITION, type Color } from 'chess.js';
+import { LEVELS, migrateDifficulty } from './difficulty';
 
 export const TIME_CONTROLS = [
   { id: 'none', zh: '不限时', en: 'Untimed', seconds: 0, increment: 0 },
@@ -132,7 +133,7 @@ export function undo(game: Game, now: number): Game {
 }
 
 export function serialize(game: Game): string {
-  return JSON.stringify({ version: 1, game: { ...game, paused: game.started || game.paused, clockAt: null } });
+  return JSON.stringify({ version: 2, game: { ...game, paused: game.started || game.paused, clockAt: null } });
 }
 
 function isClocks(value: unknown): value is Record<Color, number> {
@@ -146,8 +147,8 @@ export function deserialize(raw: string): Game {
   const data = JSON.parse(raw);
   const g = data?.game;
   const s = g?.settings;
-  if (data?.version !== 1 || !s || !['computer', 'local'].includes(s.mode) || !['w', 'b'].includes(s.player)
-    || !Number.isInteger(s.difficulty) || s.difficulty < 0 || s.difficulty > 5
+  if (![1, 2].includes(data?.version) || !s || !['computer', 'local'].includes(s.mode) || !['w', 'b'].includes(s.player)
+    || !Number.isInteger(s.difficulty) || s.difficulty < 0 || s.difficulty >= (data.version === 1 ? 6 : LEVELS.length)
     || !TIME_CONTROLS.some(t => t.id === s.time) || typeof s.names !== 'boolean'
     || typeof g.initialFen !== 'string' || !Array.isArray(g.moves) || g.moves.length > 10000
     || !g.moves.every((m: unknown) => typeof m === 'string' && /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(m))
@@ -157,7 +158,7 @@ export function deserialize(raw: string): Game {
     throw new Error('棋局存档格式无效 / Invalid saved game');
   }
   position(g);
-  return { ...g, paused: g.started || g.paused, clockAt: null };
+  return { ...g, settings: { ...s, difficulty: data.version === 1 ? migrateDifficulty(s.difficulty) : s.difficulty }, paused: g.started || g.paused, clockAt: null };
 }
 
 export function formatTime(ms: number): string {

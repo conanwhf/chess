@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { createGame, DEFAULT_SETTINGS, serialize } from '../../src/game';
+import { LEVELS, THINKER_LEVEL } from '../../src/difficulty';
 
 const square = (page: Page, name: string) => page.locator(`[data-square="${name}"]`);
 const center = async (page: Page, name: string) => {
@@ -132,13 +133,13 @@ test('pausing during a drag cancels it; computer turn cannot be dragged', async 
 });
 
 for (const { mode, difficulty } of [
-  ...[0, 1, 2, 3, 4, 5].map(difficulty => ({ mode: 'computer' as const, difficulty })),
-  { mode: 'local' as const, difficulty: 5 },
+  ...LEVELS.map((_, difficulty) => ({ mode: 'computer' as const, difficulty })),
+  { mode: 'local' as const, difficulty: LEVELS.length - 1 },
 ]) test(`legal markers follow current game: ${mode} level ${difficulty + 1}`, async ({ page }) => {
   const game = createGame({ ...DEFAULT_SETTINGS, mode, difficulty }, '7k/8/8/3p4/4P3/8/8/7K w - - 0 1');
   await page.addInitScript(raw => localStorage.setItem('little-chess.game', raw), serialize(game));
   await page.goto('/');
-  const visible = mode === 'local' || difficulty < 3;
+  const visible = mode === 'local' || difficulty < THINKER_LEVEL;
   const board = page.getByTestId('board'), fen = await board.getAttribute('data-fen');
   await square(page, 'e4').click();
   await expect(square(page, 'e4')).toHaveAttribute('aria-pressed', 'true');
@@ -158,7 +159,7 @@ for (const { mode, difficulty } of [
 });
 
 test('Thinker keeps manual hints and ignores default-level changes for legal markers', async ({ page }) => {
-  const game = createGame({ ...DEFAULT_SETTINGS, difficulty: 3 });
+  const game = createGame({ ...DEFAULT_SETTINGS, difficulty: THINKER_LEVEL });
   await page.addInitScript(raw => localStorage.setItem('little-chess.game', raw), serialize(game));
   await page.goto('/');
   await page.getByTestId('menu').click();

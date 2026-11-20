@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Chess } from 'chess.js';
+import { LEVELS } from '../../src/difficulty';
 import { changeTime, createGame, DEFAULT_SETTINGS, deserialize, formatTime, pause, play, position, result, resume, serialize, tick, undo, type Game } from '../../src/game';
 
 function sequence(moves: string[], g: Game = createGame({ ...DEFAULT_SETTINGS, mode: 'local' })) {
@@ -118,6 +119,28 @@ describe('clock and undo', () => {
 });
 
 describe('save boundary', () => {
+  it('round-trips every new level with the new save version', () => {
+    for (const [difficulty] of LEVELS.entries()) {
+      const game = createGame({ ...DEFAULT_SETTINGS, difficulty });
+      expect(JSON.parse(serialize(game)).version).toBe(2);
+      expect(deserialize(serialize(game)).settings.difficulty).toBe(difficulty);
+    }
+  });
+  it('rejects a new-format level outside the twelve profiles', () => {
+    const game = createGame({ ...DEFAULT_SETTINGS, difficulty: LEVELS.length });
+    expect(() => deserialize(serialize(game))).toThrow('Invalid saved game');
+  });
+  it('migrates the six previous levels without changing moves or clocks', () => {
+    for (const [difficulty, id] of ['native-0', 'native-3', 'native-7', 'native-11', 'native-16', 'expert'].entries()) {
+      const game = sequence(['e2e4', 'e7e5']);
+      game.settings.difficulty = difficulty;
+      const restored = deserialize(JSON.stringify({ version: 1, game }));
+      expect(LEVELS[restored.settings.difficulty].id).toBe(id);
+      expect(restored.moves).toEqual(game.moves);
+      expect(restored.clocks).toEqual(game.clocks);
+      expect(restored.snapshots).toEqual(game.snapshots);
+    }
+  });
   it('restores a valid game paused with no stale timestamp', () => {
     const g = sequence(['e2e4', 'e7e5']);
     const restored = deserialize(serialize(g));

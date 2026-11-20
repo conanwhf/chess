@@ -4,7 +4,7 @@
 
 ## 运行与安装
 
-当前源码版本 `0.4.4`，尚未发布到 GitHub Release。主要面向小米 Pad、Android 13。双人对战是同机轮流下棋，不是联网对战。六档棋力使用 Stockfish 原生限强，不再完全随机走子，不对应经过标定的 Elo。
+当前源码版本 `0.4.5`，尚未发布到 GitHub Release。主要面向小米 Pad、Android 13。双人对战是同机轮流下棋，不是联网对战。十二档统一包含经典练习与原生限强，不对应经过标定的 Elo。
 
 已发布的旧版：[0.3.0 APK](https://github.com/conanwhf/chess/releases/download/v0.3.0/little-chess-0.3.0-debug.apk) · [Release 页面](https://github.com/conanwhf/chess/releases/tag/v0.3.0)。旧版不包含本轮单屏、音频与语言切换修复。
 
@@ -17,7 +17,7 @@ npm run dev
 
 在 Mac 浏览器打开终端输出的本机地址即可调试，修改代码自动刷新，无需安装 APK。浏览器窗口可调整为平板横屏或竖屏大小。首次点击后解锁音效；右上角「中 / En」切换语言，齿轮设置默认棋力并打开棋谱、帮助和声音设置。Android 特有行为再用本机模拟器验证，见 [开发文档](docs/development.md#本机调试)。
 
-构建 APK：先准备 JDK 21 与 Android SDK，执行 `npm run android:debug`。输出 `android/app/build/outputs/apk/debug/app-debug.apk`；本地交付另复制到 `artifacts/little-chess-0.4.4-debug.apk`。APK 作为 Release 附件分发，不提交到 Git 源码历史。
+构建 APK：先准备 JDK 21 与 Android SDK，执行 `npm run android:debug`。输出 `android/app/build/outputs/apk/debug/app-debug.apk`；本地交付另复制到 `artifacts/little-chess-0.4.5-debug.apk`。APK 作为 Release 附件分发，不提交到 Git 源码历史。
 
 逐版本验证结果见 [测试记录](docs/testing.md)。仍需在实际小米 Pad 验证触控、显示比例及系统后台管理。调试 APK 用于个人试用，不是正式签名发布包。
 
@@ -26,10 +26,10 @@ npm run dev
 - 主屏完整显示棋盘、双方时钟与常用操作，历史和帮助仅在菜单中打开。
 - 清晰的立体感棋子，可显示当前语言的棋子名称。
 - 点击或拖动均可走棋，支持鼠标与触摸；非法落点或棋盘外释放不落子，棋盘不会带动页面滚动。
-- 人机第 4 档 Thinker 及以上隐藏自动合法落点标记，仍可主动请求推荐走法；前三档与同机双人保留落点标记。
+- 人机第 3 档 Thinker (classic) 及以上隐藏自动合法落点标记，仍可主动请求推荐走法；前两档与同机双人保留落点标记。
 - 仅保留离线音效，可关闭；进入后台自动静音，无背景音乐。
 - 人机对战与同机双人对战；默认白方、最低难度。
-- 六档逐步增加原生 Skill Level 与搜索预算，最低档仍可能找到明显将杀，需试玩确认是否合适。齿轮只调整默认棋力，新开局可单独选档，当前局不变。档位不是经过标定的 Elo。
+- 十二档恢复旧 3–6 级，加入过渡档并与原生档粗测后穿插排序。旧 Thinker 对应新第 3 档「认真思考（经典）」，建议从附近开始试玩。齿轮只调整默认棋力，新局可单独选档，旧局保留对应策略。档位不是经过标定的 Elo。
 - 无倒计时、5 / 10 / 15 分钟、10+5 秒计时。点击时钟或进入齿轮设置可局中切换，应用新预设重设双方时间，不重开棋局。
 - 点击提示，在真实棋盘上叠加最多三个推荐走法，不实际走子。
 - 合法走子、将军、将死、和棋、升变、王车易位与吃过路兵。
