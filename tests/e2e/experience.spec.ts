@@ -27,7 +27,7 @@ test('system language, explicit switch, persistence and reset without changing p
   await context.close();
 });
 
-test('board swipe never scrolls or moves pieces; taps still work', async ({ page, context }) => {
+test('invalid board swipe never scrolls or moves pieces; taps still work', async ({ page, context }) => {
   await page.setViewportSize({ width: 800, height: 1100 });
   await page.goto('/');
   await page.getByTestId('new-game').click();
@@ -38,12 +38,13 @@ test('board swipe never scrolls or moves pieces; taps still work', async ({ page
   const fen = await board.getAttribute('data-fen');
   const square = (s: string) => page.locator(`[data-square="${s}"]`);
   const start = (await square('e2').boundingBox())!;
+  const end = (await square('e5').boundingBox())!;
   const cdp = await context.newCDPSession(page);
   await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true });
   const x = start.x + start.width / 2;
   const y = start.y + start.height / 2;
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
-  for (let i = 1; i <= 8; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - i * 24 }] });
+  for (let i = 1; i <= 8; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y + (end.y + end.height / 2 - y) * i / 8 }] });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await expect(board).toHaveAttribute('data-fen', fen!);
   expect(await board.boundingBox()).toEqual(before);

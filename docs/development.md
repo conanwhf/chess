@@ -48,12 +48,13 @@ npm run android:debug
 准备已启动的 Android 13 ARM64 平板模拟器，安装调试 APK 并打开应用。模拟器必须允许 WebView 调试，调试包默认启用。
 
 ```sh
+npx playwright install android
 adb -s emulator-5554 install -r android/app/build/outputs/apk/debug/app-debug.apk
 adb -s emulator-5554 shell am start -n com.conanwhf.littlechess/.MainActivity
 ANDROID_SERIAL=emulator-5554 npm run test:android
 ```
 
-`ANDROID_HOME` 必须已设置，脚本通过 Playwright 官方 Android WebView 接口连接本地 adb。只允许明确指定的模拟器，不会对真机执行；它会冷启动应用、替换模拟器中的当前棋局、切换语言及声音开关、关闭模拟器 Wi-Fi / 移动数据，并旋转屏幕。通过后输出逐项结果，截图写入 `artifacts/android-*.png`。实际触控和小米系统差异仍需真机验收。
+`ANDROID_HOME` 必须已设置，脚本通过 Playwright 官方 Android WebView 接口连接本地 adb。首次需安装 Playwright Android 测试驱动，用于读取 WebView 原生边界，将棋格坐标转换为系统触摸坐标；驱动仅用于测试，不打包进应用。只允许明确指定的模拟器，不会对真机执行；它会冷启动应用、替换模拟器中的当前棋局、切换语言及声音开关、关闭模拟器 Wi-Fi / 移动数据，并旋转屏幕。原生触摸同时验证合法拖动落子、非法拖动不落子及页面不滚动。通过后输出逐项结果，截图写入 `artifacts/android-*.png`。实际触控和小米系统差异仍需真机验收。
 
 本轮临时工具链位于 `/tmp/chess-toolchain`，包含 JDK、SDK、Gradle 缓存和模拟器。它不是仓库的一部分，也不是复现构建的固定路径。新机器可使用 Android Studio 安装相同版本的 SDK。
 

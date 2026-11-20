@@ -128,14 +128,30 @@ try {
 
   const original = await board.boundingBox();
   const originalFen = await board.getAttribute('data-fen');
-  const size = adb('shell', 'wm', 'size').toString().match(/Physical size: (\d+)x(\d+)/);
-  const width = Math.min(Number(size[1]), Number(size[2]));
-  const height = Math.max(Number(size[1]), Number(size[2]));
-  adb('shell', 'input', 'swipe', String(Math.round(width / 2)), String(Math.round(height * .55)), String(Math.round(width / 2)), String(Math.round(height * .3)), '600');
+  const view = (await device.info({ clazz: 'android.webkit.WebView', pkg })).bounds;
+  const viewport = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
+  const nativeDrag = async (from, to) => {
+    const points = [];
+    for (const name of [from, to]) {
+      const box = await page.locator(`[data-square="${name}"]`).boundingBox();
+      points.push(String(Math.round(view.x + (box.x + box.width / 2) * view.width / viewport.width)), String(Math.round(view.y + (box.y + box.height / 2) * view.height / viewport.height)));
+    }
+    adb('shell', 'input', 'swipe', ...points, '600');
+  };
+  await nativeDrag('e4', 'e7');
   expect(await board.boundingBox()).toEqual(original);
   await expect(board).toHaveAttribute('data-fen', originalFen);
   expect(await page.evaluate(() => [scrollX, scrollY])).toEqual([0, 0]);
-  console.log('PASS: native touch swipe does not scroll or move pieces');
+  console.log('PASS: invalid native touch drag does not scroll or move pieces');
+
+  await nativeDrag('g1', 'f3');
+  await expect(page.locator('[data-square="f3"]')).toHaveAccessibleName('f3 White Knight');
+  await expect(page.locator('.drag-piece')).toHaveCount(0);
+  expect(await board.boundingBox()).toEqual(original);
+  expect(await page.evaluate(() => [scrollX, scrollY])).toEqual([0, 0]);
+  await tool('Undo').click();
+  await expect(board).toHaveAttribute('data-fen', originalFen);
+  console.log('PASS: native touch drag makes one legal move and undo restores it');
 
   await page.getByTestId('clock-w').click();
   await page.locator('#live-time').selectOption('none');
@@ -168,5 +184,6 @@ try {
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   console.log('PASS: native effects produce samples without music and background suspends audio');
 } finally {
-  await device.close();
+  try { await device.close(); }
+  finally { adb('shell', 'am', 'force-stop', 'com.microsoft.playwright.androiddriver'); }
 }

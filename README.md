@@ -4,7 +4,7 @@
 
 ## 运行与安装
 
-当前源码版本 `0.4.1`，尚未发布到 GitHub Release。主要面向小米 Pad、Android 13。双人对战是同机轮流下棋，不是联网对战。六档棋力从随机合法走子开始，不对应经过标定的 Elo。
+当前源码版本 `0.4.2`，尚未发布到 GitHub Release。主要面向小米 Pad、Android 13。双人对战是同机轮流下棋，不是联网对战。六档棋力从随机合法走子开始，不对应经过标定的 Elo。
 
 已发布的旧版：[0.3.0 APK](https://github.com/conanwhf/chess/releases/download/v0.3.0/little-chess-0.3.0-debug.apk) · [Release 页面](https://github.com/conanwhf/chess/releases/tag/v0.3.0)。旧版不包含本轮单屏、音频与语言切换修复。
 
@@ -17,7 +17,7 @@ npm run dev
 
 在 Mac 浏览器打开终端输出的本机地址即可调试，修改代码自动刷新，无需安装 APK。浏览器窗口可调整为平板横屏或竖屏大小。首次点击后解锁音效；右上角「中 / En」切换语言，齿轮设置默认棋力并打开棋谱、帮助和声音设置。Android 特有行为再用本机模拟器验证，见 [开发文档](docs/development.md#本机调试)。
 
-构建 APK：先准备 JDK 21 与 Android SDK，执行 `npm run android:debug`。输出 `android/app/build/outputs/apk/debug/app-debug.apk`；本地交付另复制到 `artifacts/little-chess-0.4.1-debug.apk`。APK 作为 Release 附件分发，不提交到 Git 源码历史。
+构建 APK：先准备 JDK 21 与 Android SDK，执行 `npm run android:debug`。输出 `android/app/build/outputs/apk/debug/app-debug.apk`；本地交付另复制到 `artifacts/little-chess-0.4.2-debug.apk`。APK 作为 Release 附件分发，不提交到 Git 源码历史。
 
 逐版本验证结果见 [测试记录](docs/testing.md)。仍需在实际小米 Pad 验证触控、显示比例及系统后台管理。调试 APK 用于个人试用，不是正式签名发布包。
 
@@ -25,6 +25,7 @@ npm run dev
 
 - 主屏完整显示棋盘、双方时钟与常用操作，历史和帮助仅在菜单中打开。
 - 清晰的立体感棋子，可显示当前语言的棋子名称。
+- 点击或拖动均可走棋，支持鼠标与触摸；非法落点或棋盘外释放不落子，棋盘不会带动页面滚动。
 - 仅保留离线音效，可关闭；进入后台自动静音，无背景音乐。
 - 人机对战与同机双人对战；默认白方、最低难度。
 - 从入门随机合法走子逐步提升到引擎对手。齿轮只调整默认棋力，新开局可单独选档，当前局不变。档位不是经过标定的 Elo。

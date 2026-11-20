@@ -75,7 +75,7 @@ export function App() {
   const fen = chess.fen();
   const ended = result(game, chess);
   const computerTurn = game.settings.mode === 'computer' && chess.turn() !== game.settings.player && !ended;
-  const blocked = game.paused || !!ended || !!computerTurn || !!modal;
+  const blocked = game.paused || !!ended || !!computerTurn || !!modal || !!promotion;
   const history = useMemo(() => chess.history({ verbose: true }), [chess]);
   const audio = useAudio(modal === 'audio' || (!game.paused && !modal), setError);
   const previousMoves = useRef(game.moves);
@@ -187,15 +187,19 @@ export function App() {
     clearHints(); setSelected(null); setPromotion(null);
     setGame(g => play(g, uci, performance.now()));
   };
+  const tryMove = (from: Square, to: Square) => {
+    if (blocked) return;
+    const moves = chess.moves({ square: from, verbose: true }).filter(m => m.to === to);
+    if (!moves.length) { setSelected(null); return; }
+    if (moves.some(m => m.promotion)) setPromotion({ from, to });
+    else move(from + to);
+  };
   const onSquare = (square: Square) => {
     if (blocked) return;
     const p = chess.get(square);
     if (p?.color === chess.turn()) { setSelected(s => s === square ? null : square); return; }
     if (!selected) return;
-    const moves = chess.moves({ square: selected, verbose: true }).filter(m => m.to === square);
-    if (!moves.length) { setSelected(null); return; }
-    if (moves.some(m => m.promotion)) setPromotion({ from: selected, to: square });
-    else move(selected + square);
+    tryMove(selected, square);
   };
   const requestHint = async () => {
     if (blocked) return;
@@ -271,7 +275,7 @@ export function App() {
       <section className="play-area" aria-label={t('对弈', 'Play')}>
         {playerBar(orientation === 'w' ? 'b' : 'w')}
         <div className="board-slot"><div className="board-stage">
-          <Board chess={chess} orientation={orientation} selected={selected} onSquare={onSquare} hints={hints} focusedHint={focusedHint} showNames={game.settings.names} disabled={blocked} />
+          <Board chess={chess} orientation={orientation} selected={selected} onSquare={onSquare} onMove={tryMove} hints={hints} focusedHint={focusedHint} showNames={game.settings.names} disabled={blocked} />
           {game.paused && !modal && !ended && <div className="pause-overlay"><Pause size={30} /><Bi zh="休息一下" en="Game paused" /><button className="primary-button" onClick={() => { setError(''); setRetry(n => n + 1); setGame(g => resume(g, performance.now())); }}><Play size={20} /><Bi zh="继续下棋" en="Resume" /></button></div>}
         </div></div>
         {playerBar(orientation)}
