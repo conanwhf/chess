@@ -9,6 +9,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:4173',
     channel: 'chrome',
+    locale: 'en-US',
     viewport: { width: 1280, height: 800 },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',

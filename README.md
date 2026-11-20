@@ -1,12 +1,12 @@
 # 小小棋手 · Little Chess
 
-给初学国际象棋的孩子使用的离线 Android 应用。中文和英文同时显示，无广告、无账户、无内购、无次数限制。
+给初学国际象棋的孩子使用的离线 Android 应用。支持中文和英文切换，首次跟随系统语言。无广告、无账户、无内购、无次数限制。
 
 ## 运行与安装
 
-当前版本 `0.3.0`，主要面向小米 Pad、Android 13。双人对战是同机轮流下棋，不是联网对战。六档棋力从随机合法走子开始，不对应经过标定的 Elo。
+当前源码版本 `0.4.0`，尚未发布到 GitHub Release。主要面向小米 Pad、Android 13。双人对战是同机轮流下棋，不是联网对战。六档棋力从随机合法走子开始，不对应经过标定的 Elo。
 
-**[下载 APK 安装包](https://github.com/conanwhf/chess/releases/download/v0.3.0/little-chess-0.3.0-debug.apk)** · [Release 页面与说明](https://github.com/conanwhf/chess/releases/tag/v0.3.0)
+已发布的旧版：[0.3.0 APK](https://github.com/conanwhf/chess/releases/download/v0.3.0/little-chess-0.3.0-debug.apk) · [Release 页面](https://github.com/conanwhf/chess/releases/tag/v0.3.0)。旧版不包含本轮单屏、音频与语言切换修复。
 
 安装包约 7.9 MiB，为调试签名的试用版。用 Android 设备打开 APK 安装；系统提示时，只需允许所用浏览器或文件管理器安装此来源的应用，不要关闭设备整体安全保护。
 
@@ -15,13 +15,17 @@ npm ci
 npm run dev
 ```
 
-构建 APK：先准备 JDK 21 与 Android SDK，执行 `npm run android:debug`。输出 `android/app/build/outputs/apk/debug/app-debug.apk`；本地交付另复制到 `artifacts/little-chess-0.3.0-debug.apk`。APK 作为 Release 附件分发，不提交到 Git 源码历史。
+在 Mac 浏览器打开终端输出的本机地址即可调试，修改代码自动刷新，无需安装 APK。浏览器窗口可调整为平板横屏或竖屏大小。首次点击后启动声音；右上角切换语言，菜单打开棋谱、帮助和声音设置。Android 特有行为再用本机模拟器验证，见 [开发文档](docs/development.md#本机调试)。
 
-已通过 53 项单元测试、14 项 Chrome 集成测试和 Android 13 模拟器离线验收。仍需在实际小米 Pad 验证触控、显示比例及系统后台管理。调试 APK 用于个人试用，不是正式签名发布包。
+构建 APK：先准备 JDK 21 与 Android SDK，执行 `npm run android:debug`。输出 `android/app/build/outputs/apk/debug/app-debug.apk`；本地交付另复制到 `artifacts/little-chess-0.4.0-debug.apk`。APK 作为 Release 附件分发，不提交到 Git 源码历史。
+
+逐版本验证结果见 [测试记录](docs/testing.md)。仍需在实际小米 Pad 验证触控、显示比例及系统后台管理。调试 APK 用于个人试用，不是正式签名发布包。
 
 ## 交付目标
 
-- 简洁、清晰的棋盘与立体感棋子，附中英文棋子名称。
+- 主屏完整显示棋盘、双方时钟与常用操作，历史和帮助仅在菜单中打开。
+- 清晰的立体感棋子，可显示当前语言的棋子名称。
+- 音效与背景音乐完全离线，可分别关闭；进入后台自动静音。
 - 人机对战与同机双人对战；默认白方、最低难度。
 - 从入门随机合法走子逐步提升到引擎对手。档位不是经过标定的 Elo。
 - 无倒计时、5 / 10 / 15 分钟、10+5 秒计时。

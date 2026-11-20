@@ -6,9 +6,13 @@ const board = (page: Page) => page.getByTestId('board');
 const tool = (page: Page, english: string) => page.locator('.board-toolbar:visible').getByRole('button', { name: new RegExp(english) });
 const square = (page: Page, s: string) => page.locator(`[data-square="${s}"]`);
 const move = async (page: Page, from: string, to: string) => { await square(page, from).click(); await square(page, to).click(); };
+const menu = async (page: Page, name: string) => {
+  await page.getByTestId('menu').click();
+  await page.getByRole('button', { name, exact: true }).click();
+};
 
 async function newLocal(page: Page, time = 'none') {
-  await page.getByRole('button', { name: '设置与新棋局 / Settings & new game' }).click();
+  await page.getByTestId('new-game').click();
   await page.getByRole('button', { name: /Two players/ }).click();
   await page.locator('#time').selectOption(time);
   await page.getByRole('button', { name: /Start game/ }).click();
@@ -18,8 +22,8 @@ test.beforeEach(async ({ page }) => { await page.goto('/'); });
 
 test('offline assets, bilingual names and tablet layout', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /Little Chess/ })).toBeVisible();
-  await expect(square(page, 'e1')).toHaveAccessibleName(/王 King/);
-  await expect(square(page, 'd1')).toHaveAccessibleName(/后 Queen/);
+  await expect(square(page, 'e1')).toHaveAccessibleName(/King/);
+  await expect(square(page, 'd1')).toHaveAccessibleName(/Queen/);
   await expect(page.getByTestId('player-b')).toContainText('First steps');
   expect(await page.locator('img').evaluateAll(imgs => imgs.every(img => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0))).toBe(true);
   const dimensions = await page.evaluate(() => ({ width: innerWidth, scroll: document.documentElement.scrollWidth }));
@@ -41,7 +45,7 @@ test('real Stockfish supplies 3 virtual alternatives, focused arrow and clear', 
   await page.getByTestId('candidate').nth(1).click();
   await expect(page.getByTestId('candidate').nth(1)).toHaveAttribute('aria-pressed', 'true');
   await page.screenshot({ path: 'artifacts/tablet-hints.png', fullPage: true });
-  await page.getByRole('button', { name: '清除提示 / Clear hints' }).click();
+  await page.getByRole('button', { name: 'Clear hints' }).click();
   await expect(page.getByTestId('hint-arrow')).toHaveCount(0);
 });
 
@@ -49,8 +53,7 @@ test('default beginner computer replies, cannot be played by user, undo restores
   await square(page, 'e7').click();
   await expect(square(page, 'e7')).toHaveAttribute('aria-pressed', 'false');
   await move(page, 'e2', 'e4');
-  await expect(page.getByTestId('move-history')).toContainText('e4');
-  await expect(page.locator('.move-count')).toContainText('2');
+  await expect(board(page)).toHaveAttribute('data-fen', / w .* 2$/);
   expect(new Chess((await board(page).getAttribute('data-fen'))!).turn()).toBe('w');
   await tool(page, 'Undo').click();
   await expect(board(page)).toHaveAttribute('data-fen', new Chess().fen());
@@ -68,46 +71,47 @@ test('local mode, invalid square, pause, resume, clock, flip and reload', async 
   const stopped = await page.getByTestId('clock-b').textContent();
   await page.waitForTimeout(1100);
   await expect(page.getByTestId('clock-b')).toHaveText(stopped!);
-  await page.getByRole('button', { name: /继续下棋/ }).click();
+  await page.locator('.pause-overlay').getByRole('button', { name: 'Resume' }).click();
   await move(page, 'e7', 'e5');
   const fen = await board(page).getAttribute('data-fen');
-  await tool(page, 'Flip').click();
+  await menu(page, 'Flip board');
   await expect(page.locator('.square').first()).toHaveAttribute('data-square', 'h1');
   await page.reload();
   await expect(board(page)).toHaveAttribute('data-fen', fen!);
-  await expect(page.getByRole('button', { name: /继续下棋/ })).toBeVisible();
+  await expect(page.locator('.pause-overlay').getByRole('button', { name: 'Resume' })).toBeVisible();
 });
 
 test('settings cancel does not replace a game and all levels are selectable', async ({ page }) => {
   await newLocal(page);
   await move(page, 'e2', 'e4');
   const fen = await board(page).getAttribute('data-fen');
-  await page.getByRole('button', { name: '设置与新棋局 / Settings & new game' }).click();
+  await page.getByTestId('new-game').click();
   await page.getByRole('button', { name: /Vs computer/ }).click();
   await expect(page.locator('#difficulty option')).toHaveCount(6);
   await page.locator('#difficulty').selectOption('5');
-  await page.getByRole('button', { name: '关闭 / Close' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
   await expect(board(page)).toHaveAttribute('data-fen', fen!);
 });
 
 test('highest level as white makes a real engine move when child plays black', async ({ page }) => {
-  await page.getByRole('button', { name: '设置与新棋局 / Settings & new game' }).click();
+  await page.getByTestId('new-game').click();
   await page.locator('#difficulty').selectOption('5');
   await page.getByRole('button', { name: /Black · second/ }).click();
   await page.getByRole('button', { name: /Start game/ }).click();
-  await expect(page.locator('.move-count')).toContainText('1');
+  await expect(board(page)).toHaveAttribute('data-fen', / b /);
   expect(new Chess((await board(page).getAttribute('data-fen'))!).turn()).toBe('b');
   await expect(page.locator('.square').first()).toHaveAttribute('data-square', 'h1');
 });
 
 test('guide, piece-name toggle, bundled license text', async ({ page }) => {
+  await page.getByTestId('menu').click();
   await page.getByRole('checkbox', { name: /Piece names/ }).uncheck();
   await expect(page.locator('.piece-name')).toHaveCount(0);
-  await page.getByRole('button', { name: '棋子帮助 / Piece guide' }).click();
+  await page.getByRole('button', { name: 'Piece guide' }).click();
   await expect(page.locator('.guide-row')).toHaveCount(6);
   await expect(page.locator('.piece-guide')).toContainText('En passant');
-  await page.getByRole('button', { name: '关闭 / Close' }).click();
-  await page.getByRole('button', { name: '开源声明 / Open source' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
+  await menu(page, 'Open source & privacy');
   await expect(page.locator('.legal-content pre')).toContainText('GNU GENERAL PUBLIC LICENSE');
   await expect(page.locator('.legal-content pre')).toContainText('BSD');
 });
@@ -119,7 +123,7 @@ test('promotion offers all four pieces and never silently queens', async ({ page
   await move(page, 'a7', 'a8');
   await expect(page.getByRole('dialog', { name: /Choose promotion/ })).toBeVisible();
   await expect(page.locator('.promotion-options button')).toHaveCount(4);
-  await page.getByRole('button', { name: /马 Knight/ }).click();
+  await page.getByRole('button', { name: 'Knight' }).click();
   await expect(square(page, 'a8')).toHaveAccessibleName(/Knight/);
 });
 
@@ -140,11 +144,11 @@ test('no external requests with internet destinations blocked', async ({ page, c
   // Block internet destinations, but allow the local asset origin served inside the APK.
   await context.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.abort());
   await page.reload();
-  await page.getByRole('button', { name: /继续下棋/ }).click();
+  await page.locator('.pause-overlay').getByRole('button', { name: 'Resume' }).click();
   await tool(page, 'Hint').click();
   await expect(page.getByTestId('candidate')).toHaveCount(3);
   await move(page, 'e2', 'e4');
-  await expect(page.locator('.move-count')).toContainText('2');
+  await expect(board(page)).toHaveAttribute('data-fen', / w .* 2$/);
   expect(externals).toEqual([]);
 });
 
@@ -158,18 +162,18 @@ test('hint returns only one alternative when only one legal move exists', async 
   await expect(page.getByTestId('hint-arrow')).toHaveCount(1);
 });
 
-for (const viewport of [{ width: 360, height: 800 }, { width: 800, height: 1280 }, { width: 1440, height: 1000 }]) {
+for (const viewport of [{ width: 360, height: 640 }, { width: 360, height: 800 }, { width: 800, height: 1280 }, { width: 1280, height: 720 }, { width: 1024, height: 600 }, { width: 1440, height: 1000 }]) {
   test(`responsive layout ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight)).toBe(true);
     const sizes = await page.locator('.square').evaluateAll(els => els.map(el => el.getBoundingClientRect().width));
     expect(Math.min(...sizes)).toBeGreaterThan(35);
-    await expect(tool(page, 'Hint')).toBeVisible();
-    await page.getByRole('button', { name: '设置与新棋局 / Settings & new game' }).click();
+    for (const locator of [board(page), page.getByTestId('clock-w'), page.getByTestId('clock-b'), page.locator('.board-toolbar'), page.getByTestId('menu')]) await expect(locator).toBeInViewport({ ratio: 1 });
+    await page.getByTestId('new-game').click();
     await expect(page.getByRole('button', { name: /Start game/ })).toBeVisible();
-    await page.getByRole('button', { name: '关闭 / Close' }).click();
+    await page.getByRole('button', { name: 'Close' }).click();
     await tool(page, 'Resume').click();
-    await page.screenshot({ path: `artifacts/layout-${viewport.width}.png`, fullPage: true });
+    await page.screenshot({ path: `artifacts/layout-${viewport.width}x${viewport.height}.png`, fullPage: true });
     const overflow = await page.locator('button, .bi, .piece-name').evaluateAll(els => els.filter(el => {
       const e = el as HTMLElement;
       return e.getBoundingClientRect().width > 0 && e.scrollWidth > e.clientWidth + 2;

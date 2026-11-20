@@ -53,9 +53,23 @@ adb -s emulator-5554 shell am start -n com.conanwhf.littlechess/.MainActivity
 ANDROID_SERIAL=emulator-5554 npm run test:android
 ```
 
-`ANDROID_HOME` 必须已设置，脚本通过 Playwright 官方 Android WebView 接口连接本地 adb。只允许明确指定的模拟器，不会对真机执行；它会替换模拟器中的当前棋局、关闭模拟器 Wi-Fi / 移动数据，并旋转屏幕。通过后输出逐项结果，截图写入 `artifacts/android-*.png`。实际触控和小米系统差异仍需真机验收。
+`ANDROID_HOME` 必须已设置，脚本通过 Playwright 官方 Android WebView 接口连接本地 adb。只允许明确指定的模拟器，不会对真机执行；它会冷启动应用、替换模拟器中的当前棋局、切换语言及声音开关、关闭模拟器 Wi-Fi / 移动数据，并旋转屏幕。通过后输出逐项结果，截图写入 `artifacts/android-*.png`。实际触控和小米系统差异仍需真机验收。
 
 本轮临时工具链位于 `/tmp/chess-toolchain`，包含 JDK、SDK、Gradle 缓存和模拟器。它不是仓库的一部分，也不是复现构建的固定路径。新机器可使用 Android Studio 安装相同版本的 SDK。
+
+## 本机调试
+
+日常调整布局、颜色、声音、语言和对弈逻辑时，优先使用 Mac 浏览器，不需要每次传 APK 到平板：
+
+```sh
+npm run dev -- --port 5174 --strictPort
+```
+
+打开 `http://127.0.0.1:5174/`。开发服务器仅监听本机，代码保存后自动更新。端口已占用时换一个端口，不终止未知服务。Chrome 开发者工具的设备工具栏可设为 `1280×720`、`800×1280` 或 `360×640`；也可直接缩放窗口。语言按钮保留棋局，菜单可恢复跟随系统；浏览器的首选语言决定首次默认值。声音需要首次点击解锁，并受系统媒体音量控制。
+
+浏览器预览运行同一套棋规、引擎和音频代码，但不能替代 Android 生命周期、系统栏、返回键和 WebView 验证。这些场景在本机 Android 模拟器里检查：启动 Android Studio 的 API 33 平板虚拟设备，然后执行上面的构建、安装和 `test:android` 命令。也可使用已有工具链的 `emulator -avd LittleChess_API33` 打开模拟器窗口，前提是已设置相应 `ANDROID_HOME`、`ANDROID_USER_HOME` 和 `ANDROID_AVD_HOME`。
+
+推荐顺序：浏览器修改与调试 → 本机模拟器确认 APK → 最后在小米 Pad 真机验收。Android APK 不能安装在 Apple iPad 上；本项目所说的目标平板仍是小米 Pad / Android 13，iPad 只能用浏览器预览。
 
 ## 源码与资源
 
