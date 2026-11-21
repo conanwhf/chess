@@ -9,6 +9,7 @@ export const HINT_COLORS = ['#167950', '#246dc1', '#bc6026'];
 interface Props {
   chess: Chess;
   orientation: Color;
+  faceToFace: boolean;
   selected: Square | null;
   onSquare: (square: Square) => void;
   onMove: (from: Square, to: Square) => void;
@@ -19,7 +20,7 @@ interface Props {
   disabled: boolean;
 }
 
-export function Board({ chess, orientation, selected, onSquare, onMove, hints, focusedHint, showNames, showLegalTargets, disabled }: Props) {
+export function Board({ chess, orientation, faceToFace, selected, onSquare, onMove, hints, focusedHint, showNames, showLegalTargets, disabled }: Props) {
   const gesture = useRef<{ id: number; x: number; y: number; from: Square | null; moved: boolean; fen: string } | null>(null);
   const suppressClick = useRef(false);
   const [drag, setDrag] = useState<{ from: Square; x: number; y: number; to: Square | null } | null>(null);
@@ -80,11 +81,11 @@ export function Board({ chess, orientation, selected, onSquare, onMove, hints, f
           aria-pressed={selected === square} disabled={disabled}
           className={`square ${(x + y) % 2 ? 'dark' : 'light'} ${source === square ? 'selected' : ''} ${drag?.from === square ? 'drag-source' : ''} ${drag?.to === square && targets.has(square) ? 'drop-target' : ''} ${last?.from === square || last?.to === square ? 'last-move' : ''} ${checked ? 'in-check' : ''}`}
           onClick={() => onSquare(square)}>
-          {p && <><img className="piece" src={pieceUrl(p.color, p.type)} alt="" draggable={false} />{showNames && <span className={`piece-name ${p.color === 'w' ? 'white-name' : 'black-name'}`}>{t(name!.zh, name!.en)}</span>}</>}
+          {p && <div className={`piece-face ${faceToFace && p.color !== orientation ? 'facing-away' : ''}`}><img className="piece" src={pieceUrl(p.color, p.type)} alt="" draggable={false} />{showNames && <span className={`piece-name ${p.color === 'w' ? 'white-name' : 'black-name'}`}>{t(name!.zh, name!.en)}</span>}</div>}
           {targets.has(square) && <span className={`legal-target ${p ? 'capture-target' : ''}`} />}
         </button>;
       }))}
-      {drag && draggedPiece && <div className="drag-piece" style={{ left: drag.x, top: drag.y }} aria-hidden="true"><img className="piece" src={pieceUrl(draggedPiece.color, draggedPiece.type)} alt="" draggable={false} />{showNames && <span className="piece-name">{t(PIECES[draggedPiece.type].zh, PIECES[draggedPiece.type].en)}</span>}</div>}
+      {drag && draggedPiece && <div className="drag-piece" style={{ left: drag.x, top: drag.y }} aria-hidden="true"><div className={`piece-face ${faceToFace && draggedPiece.color !== orientation ? 'facing-away' : ''}`}><img className="piece" src={pieceUrl(draggedPiece.color, draggedPiece.type)} alt="" draggable={false} />{showNames && <span className="piece-name">{t(PIECES[draggedPiece.type].zh, PIECES[draggedPiece.type].en)}</span>}</div></div>}
       {hints.length > 0 && <svg className="hint-arrows" viewBox="0 0 800 800" aria-hidden="true" data-testid="hint-arrows">
         <defs>{HINT_COLORS.map((color, i) => <marker key={color} id={`arrow-${i}`} markerWidth="3" markerHeight="3" refX="2" refY="1.5" orient="auto"><path d="M0 0L2.5 1.5L0 3Z" fill={color} /></marker>)}</defs>
         {hints.map((hint, i) => {

@@ -46,6 +46,65 @@ test('mouse drag follows the piece, moves once, mixes with clicks and works flip
   await expect(page.locator('.move-row')).toHaveCount(2);
 });
 
+for (const viewport of [{ width: 360, height: 640 }, { width: 1280, height: 800 }]) test(`face-to-face pieces, labels and clocks face their player at ${viewport.width}`, async ({ page }) => {
+  await page.setViewportSize(viewport);
+  await localGame(page);
+  const reversed = 'matrix(-1, 0, 0, -1, 0, 0)';
+  await expect(square(page, 'e8').locator('.piece-face')).toHaveCSS('transform', reversed);
+  await expect(square(page, 'e1').locator('.piece-face')).toHaveCSS('transform', 'none');
+  await expect(page.getByTestId('player-b')).toHaveCSS('transform', reversed);
+  await expect(page.getByTestId('player-w')).toHaveCSS('transform', 'none');
+  await page.screenshot({ path: `artifacts/face-to-face-${viewport.width}-en.png` });
+  await square(page, 'e2').click(); await square(page, 'e4').click();
+  const a = await center(page, 'd7'), b = await center(page, 'd5');
+  await page.mouse.move(a.x, a.y); await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 8 });
+  await expect(page.locator('.drag-piece .piece-face')).toHaveCSS('transform', reversed);
+  await expect(square(page, 'd7').locator('.piece-face')).toHaveCSS('opacity', '0.25');
+  await page.mouse.up();
+  await expect(square(page, 'd5')).toHaveAccessibleName('d5 Black Pawn');
+  await square(page, 'e4').click(); await square(page, 'e5').click();
+  await square(page, 'd5').click(); await square(page, 'd4').click();
+  await expect(square(page, 'd4').locator('.piece-face')).toHaveCSS('transform', reversed);
+  await expect(square(page, 'e5').locator('.piece-face')).toHaveCSS('transform', 'none');
+  await page.getByTestId('language').click();
+  await expect(square(page, 'd4').locator('.piece-name')).toHaveText('兵');
+  await page.screenshot({ path: `artifacts/face-to-face-${viewport.width}-zh.png` });
+  const fen = await page.getByTestId('board').getAttribute('data-fen');
+  await page.getByTestId('clock-b').click();
+  await expect(page.getByRole('dialog', { name: '计时设置' })).toBeVisible();
+  await page.getByRole('button', { name: '关闭', exact: true }).click();
+  await page.getByTestId('menu').click();
+  await page.getByRole('button', { name: '翻转棋盘', exact: true }).click();
+  await expect(square(page, 'd4').locator('.piece-face')).toHaveCSS('transform', 'none');
+  await expect(square(page, 'e5').locator('.piece-face')).toHaveCSS('transform', reversed);
+  await expect(page.getByTestId('player-w')).toHaveCSS('transform', reversed);
+  await expect(page.getByTestId('player-b')).toHaveCSS('transform', 'none');
+  await expect(page.getByTestId('board')).toHaveAttribute('data-fen', fen!);
+  await page.getByTestId('menu').click();
+  await page.getByRole('button', { name: '复盘', exact: true }).click();
+  await expect(square(page, 'e1').locator('.piece-face')).toHaveCSS('transform', reversed);
+  await expect(square(page, 'e8').locator('.piece-face')).toHaveCSS('transform', 'none');
+  await expect(page.getByTestId('board')).toBeInViewport({ ratio: 1 });
+  expect(await page.evaluate(() => [scrollX, scrollY, document.documentElement.scrollHeight <= innerHeight])).toEqual([0, 0, true]);
+});
+
+for (const player of ['w', 'b'] as const) test(`computer game keeps both sides upright when playing ${player}`, async ({ page }) => {
+  const game = createGame({ ...DEFAULT_SETTINGS, player });
+  game.paused = true;
+  await page.addInitScript(raw => localStorage.setItem('little-chess.game', raw), serialize(game));
+  await page.goto('/');
+  for (const flipped of [false, true]) {
+    if (flipped) {
+      await page.getByTestId('menu').click();
+      await page.getByRole('button', { name: 'Flip board', exact: true }).click();
+    }
+    await expect(page.locator('.facing-away')).toHaveCount(0);
+    await expect(square(page, 'e8').locator('.piece-face')).toHaveCSS('transform', 'none');
+    await expect(square(page, 'e1').locator('.piece-face')).toHaveCSS('transform', 'none');
+  }
+});
+
 test('invalid drops, outside board, opponent and empty-square drags do not move; keyboard clicks remain usable', async ({ page }) => {
   await localGame(page);
   const board = page.getByTestId('board'), fen = await board.getAttribute('data-fen');

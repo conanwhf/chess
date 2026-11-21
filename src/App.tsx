@@ -261,7 +261,7 @@ export function App() {
   const playerBar = (side: Color) => {
     const computer = game.settings.mode === 'computer' && side !== game.settings.player;
     const active = chess.turn() === side && !ended;
-    return <div className={`player-bar ${active ? 'active-player' : ''}`} data-testid={`player-${side}`}>
+    return <div className={`player-bar ${active ? 'active-player' : ''} ${game.settings.mode === 'local' && side !== orientation ? 'facing-away' : ''}`} data-testid={`player-${side}`}>
       <div className={`player-avatar ${side === 'w' ? 'white-avatar' : 'black-avatar'}`}><img src={pieceUrl(side, 'k')} alt="" /></div>
       <div className="player-info"><Bi zh={computer ? '电脑棋友' : game.settings.mode === 'local' ? side === 'w' ? '白方棋手' : '黑方棋手' : '小小棋手'}
         en={computer ? 'Computer' : game.settings.mode === 'local' ? side === 'w' ? 'White player' : 'Black player' : 'You'} />
@@ -300,7 +300,7 @@ export function App() {
       <section className="play-area" aria-label={t('对弈', 'Play')}>
         {playerBar(orientation === 'w' ? 'b' : 'w')}
         <div className="board-slot"><div className="board-stage">
-          <Board chess={chess} orientation={orientation} selected={selected} onSquare={onSquare} onMove={tryMove} hints={hints} focusedHint={focusedHint} showNames={game.settings.names} showLegalTargets={game.settings.mode === 'local' || game.settings.difficulty < THINKER_LEVEL} disabled={blocked} />
+          <Board chess={chess} orientation={orientation} faceToFace={game.settings.mode === 'local'} selected={selected} onSquare={onSquare} onMove={tryMove} hints={hints} focusedHint={focusedHint} showNames={game.settings.names} showLegalTargets={game.settings.mode === 'local' || game.settings.difficulty < THINKER_LEVEL} disabled={blocked} />
           {game.paused && !modal && !ended && <div className="pause-overlay"><Pause size={30} /><Bi zh="休息一下" en="Game paused" /><button className="primary-button" onClick={() => { setError(''); setRetry(n => n + 1); setGame(g => resume(g, performance.now())); }}><Play size={20} /><Bi zh="继续下棋" en="Resume" /></button></div>}
         </div></div>
         {playerBar(orientation)}

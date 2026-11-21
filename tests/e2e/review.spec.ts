@@ -66,6 +66,39 @@ test('black victory leads into a read-only replay and preserves the finished gam
   await expect(page.getByTestId('game-over')).toHaveAttribute('data-winner', 'b');
 });
 
+for (const language of ['zh', 'en'] as const) test(`white checkmate updates the status after hints, dismissal and undo in ${language}`, async ({ page }) => {
+  await page.addInitScript(value => localStorage.setItem('little-chess.language', value), language);
+  const zh = language === 'zh';
+  await inject(page, sequence(['f2f3', 'e7e5', 'g2g4']));
+  await page.locator('.board-toolbar').getByRole('button', { name: zh ? '继续' : 'Resume', exact: true }).click();
+  const status = page.getByTestId('status');
+  await expect(status).toContainText(zh ? '黑方走棋' : 'Black to move');
+  await page.locator('.board-toolbar').getByRole('button', { name: zh ? '提示' : 'Hint', exact: true }).click();
+  await expect(page.getByTestId('candidate')).toHaveCount(3);
+  await move(page, 'd8', 'h4');
+  await expect(page.getByTestId('game-over')).toHaveAttribute('data-winner', 'b');
+  await expect(status).toContainText(zh ? '黑方将死获胜' : 'Black wins by checkmate');
+  await expect(page.getByTestId('candidate')).toHaveCount(0);
+  await page.getByRole('button', { name: zh ? '关闭' : 'Close', exact: true }).click();
+  await expect(status).toBeVisible();
+  await expect(status).toContainText(zh ? '黑方将死获胜' : 'Black wins by checkmate');
+  await page.locator('.board-toolbar').getByRole('button', { name: zh ? '悔棋' : 'Undo', exact: true }).click();
+  await expect(status).toContainText(zh ? '黑方走棋' : 'Black to move');
+  await move(page, 'd8', 'h4');
+  await expect(status).toContainText(zh ? '黑方将死获胜' : 'Black wins by checkmate');
+});
+
+test('real computer checkmate replaces the thinking status with the result', async ({ page }) => {
+  await inject(page, sequence(['f2f3', 'e7e5', 'g2g4'], createGame({ ...DEFAULT_SETTINGS, difficulty: 11 })));
+  await page.locator('.board-toolbar').getByRole('button', { name: 'Resume', exact: true }).click();
+  const status = page.getByTestId('status');
+  await expect(status).toContainText('Computer is thinking');
+  await expect(page.getByTestId('game-over')).toHaveAttribute('data-winner', 'b');
+  await expect(status).toContainText('Black wins by checkmate');
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(status).toContainText('Black wins by checkmate');
+});
+
 test('draw has two kings and no winner crown; zero-move replay is bounded', async ({ page }) => {
   await inject(page, createGame({ ...DEFAULT_SETTINGS, mode: 'local' }, '7k/8/8/8/8/8/8/7K w - - 0 1'));
   await expect(page.getByTestId('game-over')).toHaveAttribute('data-winner', 'draw');
