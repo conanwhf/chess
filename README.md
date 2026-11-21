@@ -4,9 +4,9 @@
 
 ## 运行与安装
 
-当前源码版本 `0.4.7`，尚未发布；已发布试用版为 `0.4.6`。主要面向小米 Pad、Android 13。双人对战是同机轮流下棋，不是联网对战。十二档统一包含经典练习与原生限强，不对应经过标定的 Elo。
+当前试用版本 `0.4.7`。主要面向小米 Pad、Android 13。双人对战是同机面对面轮流下棋，不是联网对战。十二档统一包含经典练习与原生限强，不对应经过标定的 Elo。
 
-下载：[0.4.6 APK](https://github.com/conanwhf/chess/releases/download/v0.4.6/little-chess-0.4.6-debug.apk) · [Release 页面与截图](https://github.com/conanwhf/chess/releases/tag/v0.4.6)。历史版本保留在仓库的 Releases 中。
+下载：[0.4.7 APK](https://github.com/conanwhf/chess/releases/download/v0.4.7/little-chess-0.4.7-debug.apk) · [Release 页面](https://github.com/conanwhf/chess/releases/tag/v0.4.7)。历史版本保留在仓库的 Releases 中。
 
 安装包为调试签名的试用版。用 Android 设备打开 APK 安装；系统提示时，只需允许所用浏览器或文件管理器安装此来源的应用，不要关闭设备整体安全保护。
 

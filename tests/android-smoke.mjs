@@ -99,7 +99,14 @@ try {
   await expect(page.getByTestId('player-b')).toContainText('2 · Thinker (classic)');
   console.log('PASS: twelve titles include classic Thinker at level two with its legal-marker boundary');
 
+  await page.getByTestId('new-game').click();
+  await expect(page.locator('#difficulty')).toHaveValue('1');
+  await page.getByRole('button', { name: 'Back to current game', exact: true }).click();
+
   await fresh('Two players', '5');
+  await expect(page.locator('[data-square="e8"] .piece-face')).toHaveCSS('transform', 'matrix(-1, 0, 0, -1, 0, 0)');
+  await expect(page.getByTestId('player-b')).toHaveCSS('transform', 'matrix(-1, 0, 0, -1, 0, 0)');
+  console.log('PASS: confirmed computer level is remembered and local players face each other');
   await move('e2', 'e4');
   await expect(page.getByTestId('clock-b')).not.toHaveText('05:00');
   adb('shell', 'input', 'keyevent', 'KEYCODE_HOME');
@@ -205,6 +212,8 @@ try {
   const endedFen = await board.getAttribute('data-fen');
   console.log('PASS: native checkmate shows the winning black king and crown');
   await page.getByRole('button', { name: 'Review game', exact: true }).click();
+  await expect(page.locator('.facing-away')).toHaveCount(0);
+  await expect(page.locator('[data-square="e8"] .piece-face')).toHaveCSS('transform', 'none');
   const savedReview = await page.evaluate(() => localStorage.getItem('little-chess.game'));
   await page.getByRole('button', { name: 'Next move' }).click();
   await expect(page.getByTestId('review-step')).toContainText('1 / 4');
@@ -227,6 +236,7 @@ try {
   await expect(page.getByTestId('review')).toHaveCount(0);
   await expect(board).toHaveAttribute('data-fen', endedFen);
   await expect(page.getByTestId('status')).toContainText('Black wins by checkmate');
+  await expect(page.locator('[data-square="e8"] .piece-face')).toHaveCSS('transform', 'matrix(-1, 0, 0, -1, 0, 0)');
   console.log('PASS: native replay steps, stops in background and exits with Back without changing the saved game');
 } finally {
   try { await device.close(); }

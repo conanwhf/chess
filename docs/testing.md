@@ -194,3 +194,12 @@ Android 验证使用已有 API 33 / WebView 109 平板模拟器，包含冷启�
 - `npm test`：100 / 100；`npm run build`、`npx cap sync android` 通过；沙盒外完整 `npm run test:e2e`：80 / 80，约 1 分钟。将死状态栏问题按用户要求暂缓，本轮未改相关逻辑。
 - Gradle `:app:assembleDebug` 成功，APK v2 签名验证通过，24 个包内资源与 `dist/` 逐字节一致。产物：`artifacts/little-chess-0.4.7-review-level-debug.apk`。本轮未运行 Android 模拟器或实际小米 Pad 验证。
 - 需求、架构、开发与复盘说明同步更新；仅提交本轮相关文档行，保留工作区原有的难度说明扩充。不推送、不发布 Release。
+
+## 0.4.7 GitHub 发布前复验 · 2026-11-21
+
+- 用户授权将胜利动画、复盘、面对面朝向及后续两项修正一起推送并发布。使用 `v0.4.7` 标签，Android `versionName=0.4.7`、`versionCode=9`，沿用现有调试签名的 Pre-release 形式。
+- `npm test`：100 / 100；`npm run android:sync`：TypeScript、生产构建及原生同步通过；沙盒外完整 `npm run test:e2e`：80 / 80，约 1.1 分钟。
+- Gradle `:app:assembleDebug` 成功；同一待发布 APK 在 Android 13 / WebView 109 模拟器覆盖安装成功，`npm run test:android` 的 15 组验收通过。新增核对下一局沿用已确认棋力、双人面对面棋子及信息栏、复盘正向显示和退出恢复。
+- 人工查看实际 APK 的终局和复盘系统截图，黑王皇冠、胜负状态及正向复盘文字可见。实际小米 Pad 尚需用户试玩；此前未复现的状态栏反馈不作为本版已修复项目。
+- 待发布 APK 为 `artifacts/release-v0.4.7/little-chess-0.4.7-debug.apk`，7,340,550 字节。APK v2 签名通过，无 INTERNET 或敏感权限，24 个应用资源与最终 `dist/` 逐字节一致。
+- 发布说明为 `docs/releases/v0.4.7.md`，README 下载入口和迭代记录同步。仅提交本轮发布相关内容，保留已有三份文档扩充为未提交状态；不上传密钥、工具链、测试数据或缓存。
