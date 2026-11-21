@@ -153,7 +153,7 @@ test('effects produce samples with no music; legacy preferences persist and paus
   await move('d8', 'h4', 4);
 });
 
-test('gear changes only the default level; new-game overrides never change the default', async ({ page }) => {
+test('confirmed computer level is reused; gear overrides and cancelled drafts leave the current game unchanged', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByTestId('language')).toHaveText('中/En');
   await expect(page.getByTestId('menu')).toHaveAccessibleName('Settings');
@@ -175,11 +175,21 @@ test('gear changes only the default level; new-game overrides never change the d
   await page.getByRole('button', { name: 'Start game' }).click();
   await expect(page.getByTestId('player-b')).toContainText('Thinker (classic)');
   await page.getByTestId('menu').click();
-  await expect(page.locator('#default-difficulty')).toHaveValue('5');
+  await expect(page.locator('#default-difficulty')).toHaveValue('1');
   await page.screenshot({ path: 'artifacts/settings-default-level.png' });
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByTestId('new-game').click();
-  await expect(page.locator('#difficulty')).toHaveValue('5');
+  await expect(page.locator('#difficulty')).toHaveValue('1');
+  await page.locator('#difficulty').selectOption('8');
+  await page.getByRole('button', { name: 'Back to current game', exact: true }).click();
+  await page.reload();
+  await page.getByTestId('new-game').click();
+  await expect(page.locator('#difficulty')).toHaveValue('1');
+  await page.getByRole('button', { name: 'Two players', exact: true }).click();
+  await page.getByRole('button', { name: 'Start game', exact: true }).click();
+  await page.getByTestId('new-game').click();
+  await page.getByRole('button', { name: 'Vs computer', exact: true }).click();
+  await expect(page.locator('#difficulty')).toHaveValue('1');
 });
 
 test('six-level saves and numeric defaults migrate by profile without losing the position', async ({ page }) => {

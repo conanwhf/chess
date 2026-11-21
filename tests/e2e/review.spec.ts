@@ -55,12 +55,15 @@ test('black victory leads into a read-only replay and preserves the finished gam
   const finalFen = await page.getByTestId('board').getAttribute('data-fen');
   await page.getByRole('button', { name: 'Review game', exact: true }).click();
   await expect(page.getByTestId('review-step')).toContainText('0 / 4');
+  await expect(page.locator('.facing-away')).toHaveCount(0);
+  await expect(page.locator('[data-square="e8"] .piece-face')).toHaveCSS('transform', 'none');
   await page.getByRole('button', { name: 'Last position' }).click();
   await expect(page.getByTestId('review-step')).toContainText('Qh4#');
   await expect(page.getByTestId('board')).toHaveAttribute('data-fen', finalFen!);
   await page.getByRole('button', { name: 'Exit review' }).click();
   await expect(page.getByTestId('board')).toHaveAttribute('data-fen', finalFen!);
   await expect(page.getByTestId('status')).toContainText('Black wins by checkmate');
+  await expect(page.locator('[data-square="e8"] .piece-face')).toHaveCSS('transform', 'matrix(-1, 0, 0, -1, 0, 0)');
   await expect(page.getByTestId('game-over')).toHaveCount(0);
   await page.reload();
   await expect(page.getByTestId('game-over')).toHaveAttribute('data-winner', 'b');

@@ -83,10 +83,15 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 1280, height: 800 
   await expect(page.getByTestId('board')).toHaveAttribute('data-fen', fen!);
   await page.getByTestId('menu').click();
   await page.getByRole('button', { name: '复盘', exact: true }).click();
-  await expect(square(page, 'e1').locator('.piece-face')).toHaveCSS('transform', reversed);
+  await expect(square(page, 'e1').locator('.piece-face')).toHaveCSS('transform', 'none');
   await expect(square(page, 'e8').locator('.piece-face')).toHaveCSS('transform', 'none');
+  await expect(page.locator('.facing-away')).toHaveCount(0);
   await expect(page.getByTestId('board')).toBeInViewport({ ratio: 1 });
   expect(await page.evaluate(() => [scrollX, scrollY, document.documentElement.scrollHeight <= innerHeight])).toEqual([0, 0, true]);
+  await page.screenshot({ path: `artifacts/upright-review-${viewport.width}.png` });
+  await page.getByRole('button', { name: '退出复盘', exact: true }).click();
+  await expect(square(page, 'e5').locator('.piece-face')).toHaveCSS('transform', reversed);
+  await expect(square(page, 'd4').locator('.piece-face')).toHaveCSS('transform', 'none');
 });
 
 for (const player of ['w', 'b'] as const) test(`computer game keeps both sides upright when playing ${player}`, async ({ page }) => {

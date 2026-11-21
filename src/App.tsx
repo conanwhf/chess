@@ -248,6 +248,7 @@ export function App() {
     closeReview();
     clearHints(); setError(''); setSelected(null); setPromotion(null); canSave.current = true;
     const fresh = createGame(draft);
+    if (draft.mode === 'computer') changeDefaultLevel(draft.difficulty);
     setGame(fresh); save(fresh); setOrientation(draft.mode === 'computer' ? draft.player : 'w'); setModal(null);
   };
   const handleUndo = () => { clearHints(); setSelected(null); setGame(g => undo(g, performance.now())); };
