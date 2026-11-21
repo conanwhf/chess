@@ -27,6 +27,17 @@ npm run test:e2e
 
 针对场景检查可运行 `npm run test:e2e -- --grep 'promotion|stale hints'`，不用每次修改都跑完整测试。
 
+## 修改难度设置
+
+先阅读 [难度机制与十二档参数](architecture.md#难度与提示)。当前参数集中在 `src/difficulty.ts` 的 `LEVELS`：`id` 为策略身份，`zh` / `en` 为显示头衔，`engineChance` 为每次选棋采用引擎的概率，`skill` / `depth` / `milliseconds` 为引擎分支的搜索设置。不要在界面另写一套参数；`engineChance=1` 表示每步使用引擎，不表示自动采用最高 Skill。
+
+- 只调整显示头衔时，保留 `id`、顺序和搜索参数，核对中英文界面。
+- 调整概率或搜索预算时，同步架构文档参数表与相关测试。不要只按 Skill 或深度排序；两种弱化方式可能交叉，需要在受影响档位间做有代表性的对局或试玩。已有粗测方法见 [十二档粗测](difficulty-ladder-validation.md)，不要求每次文案修改重跑。
+- 增删或重排档位时，棋局和默认值存的是数组索引，不能直接沿用旧数字。检查 `src/game.ts` 的棋局版本、`src/App.tsx` 的默认值读取，以及 `migrateDifficulty()` 的策略身份映射，按实际兼容需求迁移。当前两种存储均写入版本 3。
+- `THINKER_LEVEL` 按 `classic-4` 身份定位，控制自动合法落点的显示分界；改动其位置时一并确认标记行为。主动提示的强度独立定义在 `src/engine.ts`，不随对战档位变化。
+
+针对机制和存档的快速验证可运行 `npm test -- tests/unit/engine.test.ts tests/unit/game.test.ts`；界面验证需覆盖默认值不改变当前棋局、确认人机开局记住档位而取消不记住、Thinker 的落点标记分界，以及提示不改变棋局。只更新文档时核对源码、链接与差异即可，不必重跑全量测试。
+
 ## Android 工程
 
 `android/` 随仓库提交，不要重复执行 `cap add android`。使用 JDK 21，设置 `JAVA_HOME` 和 `ANDROID_HOME`，通过 SDK Manager 安装 `platforms;android-36`、`build-tools;35.0.0`、`platform-tools` 并确认 SDK 许可证。
@@ -54,7 +65,7 @@ adb -s emulator-5554 shell am start -n com.conanwhf.littlechess/.MainActivity
 ANDROID_SERIAL=emulator-5554 npm run test:android
 ```
 
-`ANDROID_HOME` 必须已设置，脚本通过 Playwright 官方 Android WebView 接口连接本地 adb。首次需安装 Playwright Android 测试驱动，用于读取 WebView 原生边界，将棋格坐标转换为系统触摸坐标；驱动仅用于测试，不打包进应用。只允许明确指定的模拟器，不会对真机执行；它会冷启动应用、替换模拟器中的当前棋局、切换语言及声音开关、关闭模拟器 Wi-Fi / 移动数据，并旋转屏幕。原生触摸同时验证合法拖动落子、非法拖动不落子及页面不滚动。通过后输出逐项结果，截图写入 `artifacts/android-*.png`。实际触控和小米系统差异仍需真机验收。
+`ANDROID_HOME` 必须已设置，脚本通过 Playwright 官方 Android WebView 接口连接本地 adb。首次需安装 Playwright Android 测试驱动，用于读取 WebView 原生边界，将棋格坐标转换为系统触摸坐标；驱动仅用于测试，不打包进应用。只允许明确指定的模拟器，不会对真机执行；它会冷启动应用、替换模拟器中的当前棋局、切换语言及声音开关、关闭模拟器 Wi-Fi / 移动数据，并旋转屏幕。原生触摸同时验证合法拖动落子、非法拖动不落子及页面不滚动；还验证新局棋力记忆、面对面对弈朝向、终局弹窗、复盘正向显示、后台停止播放与返回退出。通过后输出逐项结果，截图写入 `artifacts/android-*.png`。实际触控和小米系统差异仍需真机验收。
 
 本轮临时工具链位于 `/tmp/chess-toolchain`，包含 JDK、SDK、Gradle 缓存和模拟器。它不是仓库的一部分，也不是复现构建的固定路径。新机器可使用 Android Studio 安装相同版本的 SDK。
 
